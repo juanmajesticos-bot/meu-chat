@@ -34,6 +34,7 @@ function getXpAtual(xp) { return xp % XP_POR_NIVEL; }
 
 let usuarioAtual = null;
 let dadosUsuario = null;
+let mensagensCache = new Set(); // Para evitar duplicação
 
 // Elementos DOM
 const telaLogin = document.getElementById('loginScreen');
@@ -58,7 +59,7 @@ function getHoraAtual() {
 }
 
 // ============================================
-// COMANDO GUNTO - MOSTRA EM TODAS AS TELAS
+// COMANDO GUNTO
 // ============================================
 async function executarGunto(mensagem, autor) {
     const textoGunto = mensagem.substring(6).trim();
@@ -67,7 +68,6 @@ async function executarGunto(mensagem, autor) {
         return true;
     }
     
-    // Salva no Firestore para aparecer em todas as telas
     await db.collection('alertas').add({
         tipo: 'gunto',
         mensagem: textoGunto,
@@ -79,13 +79,11 @@ async function executarGunto(mensagem, autor) {
     return true;
 }
 
-// Escutar alertas do Firestore (para aparecer em todas as telas)
 db.collection('alertas').onSnapshot((snapshot) => {
     snapshot.forEach((doc) => {
         const alerta = doc.data();
         if (alerta.tipo === 'gunto') {
             mostrarGuntoAlert(alerta.mensagem, alerta.autor);
-            // Remove após mostrar
             doc.ref.delete();
         }
     });
@@ -101,7 +99,7 @@ function mostrarGuntoAlert(mensagem, autor) {
 }
 
 // ============================================
-// COMANDO CLS - LIMPAR TODAS MENSAGENS
+// COMANDO CLS - LIMPAR MENSAGENS
 // ============================================
 async function executarCls(autor) {
     try {
@@ -111,13 +109,12 @@ async function executarCls(autor) {
             batch.delete(doc.ref);
         });
         await batch.commit();
-        
+        mensagensCache.clear();
         await enviarMensagemSistema(`🗑️ Todas as mensagens foram limpas por ${autor}!`);
         
-        // Notificação visual
         const notif = document.createElement('div');
         notif.className = 'clear-notification';
-        notif.innerHTML = '🗑️ CHAT LIMPO POR ${autor}! 🗑️';
+        notif.innerHTML = `🗑️ CHAT LIMPO POR ${autor}! 🗑️`;
         document.body.appendChild(notif);
         setTimeout(() => notif.remove(), 3000);
         
@@ -127,7 +124,7 @@ async function executarCls(autor) {
 }
 
 // ============================================
-// COMANDO KICK - EXPULSAR USUÁRIO
+// COMANDO KICK
 // ============================================
 async function executarKick(mensagem, autor) {
     const partes = mensagem.split(' ');
@@ -143,7 +140,6 @@ async function executarKick(mensagem, autor) {
         return true;
     }
     
-    // Verifica nível do autor
     const autorRef = await db.collection('usuarios').doc(autor).get();
     const autorNivel = autorRef.exists ? (autorRef.data().nivel || 1) : 1;
     
@@ -154,7 +150,6 @@ async function executarKick(mensagem, autor) {
     
     await enviarMensagemSistema(`💀 ${alvo} foi EXPULSO do chat por ${autor}! 💀`);
     
-    // Notificação para o kickado (se estiver online)
     if (alvo === usuarioAtual) {
         const kickNotif = document.createElement('div');
         kickNotif.className = 'kick-notification';
@@ -286,6 +281,242 @@ function mostrarModalForca() {
 }
 
 // ============================================
+// JOGO GARTIC
+// ============================================
+let garticAtivo = false;
+let palavraSecreta = "";
+let desenhistaAtual = "";
+let tempoRestante = 60;
+let timerInterval = null;
+let desenhando = false;
+let ultimaX = 0;
+let ultimaY = 0;
+let corAtual = "#000000";
+let tamanhoPincel = 3;
+
+const palavrasGartic = [
+    "CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "ESTRELA",
+    "FLOR", "ARVORE", "MONTANHA", "RIO", "MAR", "PRAIA", "CHUVA",
+    "FOGO", "GELO", "VENTO", "NUVEM", "ARCO-IRIS", "BORBOLETA"
+];
+
+async function executarGartic() {
+    if (garticAtivo) {
+        await enviarMensagemSistema("🎨 Já tem um jogo Gartic ativo! Aguarde o próximo.");
+        return true;
+    }
+    
+    garticAtivo = true;
+    palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
+    desenhistaAtual = usuarioAtual;
+    tempoRestante = 60;
+    
+    await enviarMensagemSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
+    
+    abrirModalGartic();
+    iniciarTimerGartic();
+    return true;
+}
+
+function abrirModalGartic() {
+    const modal = document.getElementById('garticModal');
+    const canvas = document.getElementById('garticCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Configurar canvas
+    canvas.width = 500;
+    canvas.height = 400;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = corAtual;
+    ctx.lineWidth = tamanhoPincel;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Mostrar palavra apenas para o desenhista
+    const wordDisplay = document.getElementById('garticWordDisplay');
+    const drawerInfo = document.getElementById('garticDrawerInfo');
+    
+    if (usuarioAtual === desenhistaAtual) {
+        wordDisplay.innerHTML = `🎨 Você está desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
+        wordDisplay.style.background = "rgba(66, 165, 245, 0.2)";
+        drawerInfo.innerHTML = `🎨 Você é o DESENHISTA! Desenhe a palavra!`;
+        enableDrawing(true);
+    } else {
+        wordDisplay.innerHTML = `❓ Adivinhe o desenho! ❓`;
+        wordDisplay.style.background = "rgba(255, 255, 255, 0.1)";
+        drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
+        enableDrawing(false);
+    }
+    
+    modal.style.display = 'flex';
+    
+    // Configurar eventos do canvas
+    setupCanvasEvents();
+    
+    // Limpar histórico de palpites
+    document.getElementById('guessHistory').innerHTML = '';
+}
+
+function enableDrawing(enable) {
+    const canvas = document.getElementById('garticCanvas');
+    if (enable) {
+        canvas.style.cursor = 'crosshair';
+    } else {
+        canvas.style.cursor = 'not-allowed';
+    }
+}
+
+function setupCanvasEvents() {
+    const canvas = document.getElementById('garticCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function getCoordenadas(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        let clientX, clientY;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        let x = (clientX - rect.left) * scaleX;
+        let y = (clientY - rect.top) * scaleY;
+        
+        x = Math.max(0, Math.min(canvas.width, x));
+        y = Math.max(0, Math.min(canvas.height, y));
+        
+        return { x, y };
+    }
+    
+    function startDrawing(e) {
+        if (usuarioAtual !== desenhistaAtual) return;
+        e.preventDefault();
+        desenhando = true;
+        const { x, y } = getCoordenadas(e);
+        ultimaX = x;
+        ultimaY = y;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    }
+    
+    function draw(e) {
+        if (!desenhando || usuarioAtual !== desenhistaAtual) return;
+        e.preventDefault();
+        const { x, y } = getCoordenadas(e);
+        ctx.beginPath();
+        ctx.moveTo(ultimaX, ultimaY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ultimaX = x;
+        ultimaY = y;
+        
+        // Salvar desenho no Firebase para outros verem
+        const imageData = canvas.toDataURL();
+        db.collection('garticDesenho').doc('atual').set({
+            imagem: imageData,
+            timestamp: new Date()
+        });
+    }
+    
+    function stopDrawing(e) {
+        desenhando = false;
+        e.preventDefault();
+    }
+    
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    
+    canvas.addEventListener('touchstart', startDrawing);
+    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', stopDrawing);
+}
+
+function iniciarTimerGartic() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    timerInterval = setInterval(async () => {
+        if (!garticAtivo) {
+            clearInterval(timerInterval);
+            return;
+        }
+        
+        tempoRestante--;
+        const timerDisplay = document.getElementById('garticTimer');
+        timerDisplay.innerHTML = `⏱️ ${tempoRestante}s`;
+        
+        if (tempoRestante <= 0) {
+            clearInterval(timerInterval);
+            await enviarMensagemSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
+            fecharGartic();
+        }
+    }, 1000);
+}
+
+async function palpiteGartic(palpite, usuario) {
+    if (!garticAtivo) return false;
+    if (usuario === desenhistaAtual) {
+        await enviarMensagemSistema(`${usuario} não pode palpitar, é o desenhista!`);
+        return false;
+    }
+    
+    if (palpite.toUpperCase() === palavraSecreta) {
+        // Acertou!
+        await enviarMensagemSistema(`🎉 ${usuario} ACERTOU! A palavra era "${palavraSecreta}"! Ganhou +30 XP! 🎉`);
+        await adicionarXP(usuario, 30);
+        
+        // Dar XP extra para o desenhista
+        await adicionarXP(desenhistaAtual, 20);
+        await enviarMensagemSistema(`🎨 ${desenhistaAtual} ganhou +20 XP por desenhar!`);
+        
+        fecharGartic();
+        return true;
+    } else {
+        await enviarMensagemSistema(`❌ ${usuario} palpitou: "${palpite}" - ERRADO!`);
+        
+        // Adicionar ao histórico
+        const historyDiv = document.getElementById('guessHistory');
+        const guessItem = document.createElement('div');
+        guessItem.className = 'guess-item';
+        guessItem.innerHTML = `<span style="color:#ff9800">${usuario}</span> palpitou: "${palpite}" ❌`;
+        historyDiv.appendChild(guessItem);
+        
+        return false;
+    }
+}
+
+function fecharGartic() {
+    garticAtivo = false;
+    if (timerInterval) clearInterval(timerInterval);
+    const modal = document.getElementById('garticModal');
+    modal.style.display = 'none';
+}
+
+// Escutar desenhos em tempo real
+db.collection('garticDesenho').doc('atual').onSnapshot((doc) => {
+    if (doc.exists && garticAtivo && usuarioAtual !== desenhistaAtual) {
+        const data = doc.data();
+        const imagem = data.imagem;
+        const canvas = document.getElementById('garticCanvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = imagem;
+    }
+});
+
+// ============================================
 // PROCESSAR COMANDOS
 // ============================================
 async function processarComando(mensagem, usuario) {
@@ -308,6 +539,17 @@ async function processarComando(mensagem, usuario) {
     
     if (cmd === '/forca') {
         await executarForca();
+        return true;
+    }
+    
+    if (cmd === '/gartic') {
+        await executarGartic();
+        return true;
+    }
+    
+    // Palpite do Gartic (se o jogo estiver ativo e não for comando)
+    if (garticAtivo && usuario !== desenhistaAtual && !mensagem.startsWith('/')) {
+        await palpiteGartic(mensagem, usuario);
         return true;
     }
     
@@ -361,22 +603,29 @@ function atualizarInterface() {
 async function enviarMensagemFirebase(conteudo) {
     if (!conteudo.trim() || !usuarioAtual) return;
     
+    // Verificar se é comando
     const isComando = await processarComando(conteudo, usuarioAtual);
     if (isComando) return;
     
+    // Se for palpite do Gartic, já foi processado
+    if (garticAtivo && usuarioAtual !== desenhistaAtual) return;
+    
+    // Mensagem normal
     await adicionarXP(usuarioAtual, XP_POR_MSG);
     const userRef = db.collection('usuarios').doc(usuarioAtual);
     const userDoc = await userRef.get();
     const nivel = userDoc.exists ? (userDoc.data().nivel || 1) : 1;
     const titulo = getTituloPorNivel(nivel);
     
+    // Adicionar com timestamp único para evitar duplicação
     await db.collection('mensagens').add({
         usuario: usuarioAtual,
         texto: conteudo,
         nivel: nivel,
         titulo: titulo,
-        timestamp: new Date(),
-        hora: getHoraAtual()
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        hora: getHoraAtual(),
+        id: Date.now() + Math.random() // ID único
     });
 }
 
@@ -384,41 +633,70 @@ async function enviarMensagemSistema(texto) {
     await db.collection('mensagens').add({
         usuario: '💙 SISTEMA',
         texto: texto,
-        timestamp: new Date(),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         hora: getHoraAtual(),
-        isSystem: true
+        isSystem: true,
+        id: Date.now() + Math.random()
     });
 }
 
+// Carregar mensagens - CORRIGIDO para não duplicar
 function carregarMensagens() {
-    db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
-        if (snapshot.empty) {
-            messagesDiv.innerHTML = `<div class="welcome-box">💙 BLUE CHAT INICIADO 💙<br>💬 /gunto [msg] | 👢 /kick @user | 🗑️ /cls | 🪢 /forca</div>`;
-            return;
-        }
-        let html = '';
-        snapshot.forEach((doc) => {
-            const msg = doc.data();
-            if (msg.isSystem) html += `<div class="system-message">${msg.texto}</div>`;
-            else {
-                const isOwn = usuarioAtual === msg.usuario;
-                const messageClass = isOwn ? 'message-own' : 'message-other';
-                html += `
-                    <div class="message ${messageClass}">
-                        <div class="message-info">
-                            ${!isOwn ? `<span class="message-name">${msg.usuario}</span>` : ''}
-                            ${msg.nivel ? `<span class="message-level">Nv.${msg.nivel}</span>` : ''}
-                            ${msg.titulo ? `<span class="message-title">${msg.titulo}</span>` : ''}
-                            <span class="message-time">${msg.hora || 'agora'}</span>
-                        </div>
-                        <div class="message-bubble">${msg.texto}</div>
-                    </div>
-                `;
+    db.collection('mensagens')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot((snapshot) => {
+            let html = '';
+            let mensagensTemp = [];
+            
+            snapshot.forEach((doc) => {
+                const msg = doc.data();
+                const msgId = doc.id;
+                
+                // Evitar duplicação pelo ID
+                if (!mensagensCache.has(msgId)) {
+                    mensagensCache.add(msgId);
+                    mensagensTemp.push({ id: msgId, ...msg });
+                }
+            });
+            
+            // Ordenar por timestamp
+            mensagensTemp.sort((a, b) => {
+                if (a.timestamp && b.timestamp) {
+                    return a.timestamp.toDate() - b.timestamp.toDate();
+                }
+                return 0;
+            });
+            
+            if (mensagensTemp.length === 0 && mensagensCache.size === 0) {
+                messagesDiv.innerHTML = `<div class="welcome-box">💙 BLUE CHAT INICIADO 💙<br>🎨 /gartic | 🔫 /gunto | 👢 /kick | 🗑️ /cls | 🪢 /forca</div>`;
+                return;
             }
+            
+            mensagensTemp.forEach((msg) => {
+                if (msg.isSystem) {
+                    html += `<div class="system-message">${msg.texto}</div>`;
+                } else {
+                    const isOwn = usuarioAtual === msg.usuario;
+                    const messageClass = isOwn ? 'message-own' : 'message-other';
+                    html += `
+                        <div class="message ${messageClass}">
+                            <div class="message-info">
+                                ${!isOwn ? `<span class="message-name">${msg.usuario}</span>` : ''}
+                                ${msg.nivel ? `<span class="message-level">Nv.${msg.nivel}</span>` : ''}
+                                ${msg.titulo ? `<span class="message-title">${msg.titulo}</span>` : ''}
+                                <span class="message-time">${msg.hora || 'agora'}</span>
+                            </div>
+                            <div class="message-bubble">${msg.texto}</div>
+                        </div>
+                    `;
+                }
+            });
+            
+            messagesDiv.innerHTML = html;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }, (error) => {
+            console.error("Erro ao carregar mensagens:", error);
         });
-        messagesDiv.innerHTML = html;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
 }
 
 async function atualizarOnlineCount() {
@@ -458,6 +736,68 @@ messageInput.addEventListener('input', () => {
             typingIndicator.textContent = '';
         }, 1000);
     }
+});
+
+// Configurar ferramentas do Gartic
+document.addEventListener('click', (e) => {
+    if (e.target.classList && e.target.classList.contains('tool-btn')) {
+        if (e.target.dataset.clear) {
+            const canvas = document.getElementById('garticCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Salvar limpeza
+            if (usuarioAtual === desenhistaAtual) {
+                const imageData = canvas.toDataURL();
+                db.collection('garticDesenho').doc('atual').set({
+                    imagem: imageData,
+                    timestamp: new Date()
+                });
+            }
+        } else if (e.target.dataset.color) {
+            corAtual = e.target.dataset.color;
+            const canvas = document.getElementById('garticCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = corAtual;
+        }
+    }
+    
+    const brushSize = document.getElementById('garticBrushSize');
+    if (brushSize) {
+        brushSize.addEventListener('input', (e) => {
+            tamanhoPincel = parseInt(e.target.value);
+            const canvas = document.getElementById('garticCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = tamanhoPincel;
+            document.getElementById('brushSizeValue').innerText = tamanhoPincel + 'px';
+        });
+    }
+});
+
+// Botões do Gartic
+document.getElementById('garticGuessBtn')?.addEventListener('click', async () => {
+    const input = document.getElementById('garticGuessInput');
+    const palpite = input.value.trim();
+    if (palpite && garticAtivo) {
+        await palpiteGartic(palpite, usuarioAtual);
+        input.value = '';
+    }
+});
+
+document.getElementById('garticGuessInput')?.addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+        const input = document.getElementById('garticGuessInput');
+        const palpite = input.value.trim();
+        if (palpite && garticAtivo) {
+            await palpiteGartic(palpite, usuarioAtual);
+            input.value = '';
+        }
+    }
+});
+
+document.getElementById('garticCloseBtn')?.addEventListener('click', () => {
+    fecharGartic();
 });
 
 loginBtn.addEventListener('click', entrarNoChat);
