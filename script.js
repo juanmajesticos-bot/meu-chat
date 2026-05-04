@@ -59,43 +59,48 @@ function getHoraAtual() {
 }
 
 // ============================================
-// VARIÁVEIS DOS JOGOS
+// COMANDO GUNTO - CORRIGIDO
 // ============================================
-let jogoAtivo = false;
-let palavraAtual = "";
-let letrasAdivinhadas = [];
-let tentativasRestantes = 6;
 
-let garticAtivo = false;
-let palavraSecreta = "";
-let desenhistaAtual = "";
-let tempoRestante = 60;
-let timerInterval = null;
-let desenhando = false;
-let ultimaX = 0, ultimaY = 0;
-let corAtual = "#000000";
-let tamanhoPincel = 3;
+async function executarGunto(mensagem, autor) {
+    const textoGunto = mensagem.substring(6).trim();
+    
+    if (!textoGunto) {
+        await enviarMensagemSistema("Uso correto: /gunto [mensagem]");
+        return true;
+    }
+    
+    console.log("✅ GUNTO executado por:", autor, "| Msg:", textoGunto);
+    
+    // Mostrar para quem enviou
+    mostrarGuntoAlert(textoGunto, autor);
+    
+    // Salvar no Firebase para outros
+    await db.collection('alertas').add({
+        tipo: 'gunto',
+        mensagem: textoGunto,
+        autor: autor,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    await enviarMensagemSistema(`🔫 ${autor} usou GUNTO: "${textoGunto}"`);
+    return true;
+}
+
 let guntoTimeout = null;
 
-const palavrasForca = [
-    "HACKER", "MATRIX", "SISTEMA", "FIREBASE", "TERMINAL",
-    "CODIGO", "SENHA", "CRIPTOGRAFIA", "ALGORITIMO", "PROTOCOLO"
-];
-
-const palavrasGartic = [
-    "CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "ESTRELA",
-    "FLOR", "ARVORE", "MONTANHA", "RIO", "MAR", "PRAIA", "CHUVA",
-    "FOGO", "GELO", "VENTO", "NUVEM", "ARCO-IRIS", "BORBOLETA"
-];
-
-// ============================================
-// COMANDO GUNTO
-// ============================================
 function mostrarGuntoAlert(mensagem, autor) {
     const alertDiv = document.getElementById('guntoAlert');
+    if (!alertDiv) return;
+    
     if (guntoTimeout) clearTimeout(guntoTimeout);
     
-    alertDiv.innerHTML = `🔫 ${autor} DISPAROU!<br>💙 ${mensagem} 💙`;
+    alertDiv.innerHTML = `
+        <div style="text-align: center;">
+            🔫 <strong style="font-size: 1.5rem;">${autor} DISPAROU!</strong> 🔫<br>
+            💙 <strong style="font-size: 1.3rem;">${mensagem}</strong> 💙
+        </div>
+    `;
     alertDiv.style.display = 'flex';
     
     guntoTimeout = setTimeout(() => {
@@ -103,6 +108,19 @@ function mostrarGuntoAlert(mensagem, autor) {
         guntoTimeout = null;
     }, 5000);
 }
+
+// Escutar alertas do Firebase
+db.collection('alertas').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
+    snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+            const alerta = change.doc.data();
+            if (alerta.autor !== usuarioAtual) {
+                mostrarGuntoAlert(alerta.mensagem, alerta.autor);
+            }
+            change.doc.ref.delete();
+        }
+    });
+});
 
 // ============================================
 // COMANDO CLS
@@ -159,6 +177,16 @@ async function executarKick(mensagem, autor) {
 // ============================================
 // JOGO DA FORCA
 // ============================================
+let jogoAtivo = false;
+let palavraAtual = "";
+let letrasAdivinhadas = [];
+let tentativasRestantes = 6;
+
+const palavrasForca = [
+    "HACKER", "MATRIX", "SISTEMA", "FIREBASE", "TERMINAL",
+    "CODIGO", "SENHA", "CRIPTOGRAFIA", "ALGORITIMO", "PROTOCOLO"
+];
+
 async function executarForca() {
     if (jogoAtivo) {
         await enviarMensagemSistema("Já tem um jogo da forca ativo!");
@@ -191,7 +219,7 @@ function mostrarModalForca() {
                 <div class="hangman-attempts">💀 Tentativas: ${tentativasRestantes} / 6</div>
                 <input type="text" maxlength="1" placeholder="?" class="hangman-input" id="hangmanLetter" autocomplete="off">
                 <div><button id="hangmanGuessBtn">ADIVINHAR</button><button id="hangmanCloseBtn">FECHAR</button></div>
-                <div style="margin-top:15px;font-size:12px;color:#666;">Letras usadas: ${letrasAdivinhadas.join(', ') || 'nenhuma'}</div>
+                <div style="margin-top:15px;font-size:12px;color:#666;">Letras: ${letrasAdivinhadas.join(', ') || 'nenhuma'}</div>
             </div>
         `;
         
@@ -249,8 +277,14 @@ function mostrarModalForca() {
 }
 
 // ============================================
-// JOGO GARTIC
+// JOGO GARTIC (SIMPLIFICADO)
 // ============================================
+let garticAtivo = false;
+let palavraSecreta = "";
+let desenhistaAtual = "";
+
+const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA"];
+
 async function executarGartic() {
     if (garticAtivo) {
         await enviarMensagemSistema("🎨 Já tem um jogo Gartic ativo!");
@@ -260,167 +294,19 @@ async function executarGartic() {
     garticAtivo = true;
     palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
     desenhistaAtual = usuarioAtual;
-    tempoRestante = 60;
     
     await enviarMensagemSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
-    abrirModalGartic();
-    iniciarTimerGartic();
+    
+    // Simplificado - apenas aviso
+    setTimeout(() => {
+        if (garticAtivo) {
+            enviarMensagemSistema(`⏰ Tempo do Gartic acabou! A palavra era "${palavraSecreta}"`);
+            garticAtivo = false;
+        }
+    }, 60000);
+    
     return true;
 }
-
-function abrirModalGartic() {
-    const modal = document.getElementById('garticModal');
-    const canvas = document.getElementById('garticCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = 500;
-    canvas.height = 400;
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = corAtual;
-    ctx.lineWidth = tamanhoPincel;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    const wordDisplay = document.getElementById('garticWordDisplay');
-    const drawerInfo = document.getElementById('garticDrawerInfo');
-    
-    if (usuarioAtual === desenhistaAtual) {
-        wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
-        drawerInfo.innerHTML = `🎨 Você é o DESENHISTA!`;
-        enableDrawing(true);
-    } else {
-        wordDisplay.innerHTML = `❓ Adivinhe o desenho! ❓`;
-        drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
-        enableDrawing(false);
-    }
-    
-    modal.style.display = 'flex';
-    setupCanvasEvents();
-    document.getElementById('guessHistory').innerHTML = '';
-}
-
-function enableDrawing(enable) {
-    const canvas = document.getElementById('garticCanvas');
-    canvas.style.cursor = enable ? 'crosshair' : 'not-allowed';
-}
-
-function setupCanvasEvents() {
-    const canvas = document.getElementById('garticCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    function getCoordenadas(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let clientX, clientY;
-        if (e.touches) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-        let x = (clientX - rect.left) * scaleX;
-        let y = (clientY - rect.top) * scaleY;
-        x = Math.max(0, Math.min(canvas.width, x));
-        y = Math.max(0, Math.min(canvas.height, y));
-        return { x, y };
-    }
-    
-    function startDrawing(e) {
-        if (usuarioAtual !== desenhistaAtual) return;
-        e.preventDefault();
-        desenhando = true;
-        const { x, y } = getCoordenadas(e);
-        ultimaX = x;
-        ultimaY = y;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    }
-    
-    function draw(e) {
-        if (!desenhando || usuarioAtual !== desenhistaAtual) return;
-        e.preventDefault();
-        const { x, y } = getCoordenadas(e);
-        ctx.beginPath();
-        ctx.moveTo(ultimaX, ultimaY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ultimaX = x;
-        ultimaY = y;
-        
-        const imageData = canvas.toDataURL();
-        db.collection('garticDesenho').doc('atual').set({ imagem: imageData, timestamp: new Date() });
-    }
-    
-    function stopDrawing(e) { desenhando = false; e.preventDefault(); }
-    
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseleave', stopDrawing);
-    canvas.addEventListener('touchstart', startDrawing);
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', stopDrawing);
-}
-
-function iniciarTimerGartic() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(async () => {
-        if (!garticAtivo) { clearInterval(timerInterval); return; }
-        tempoRestante--;
-        const timerDisplay = document.getElementById('garticTimer');
-        timerDisplay.innerHTML = `⏱️ ${tempoRestante}s`;
-        if (tempoRestante <= 0) {
-            clearInterval(timerInterval);
-            await enviarMensagemSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
-            fecharGartic();
-        }
-    }, 1000);
-}
-
-async function palpiteGartic(palpite, usuario) {
-    if (!garticAtivo) return false;
-    if (usuario === desenhistaAtual) return false;
-    
-    if (palpite.toUpperCase() === palavraSecreta) {
-        await enviarMensagemSistema(`🎉 ${usuario} ACERTOU! A palavra era "${palavraSecreta}"! Ganhou +30 XP! 🎉`);
-        await adicionarXP(usuario, 30);
-        await adicionarXP(desenhistaAtual, 20);
-        await enviarMensagemSistema(`🎨 ${desenhistaAtual} ganhou +20 XP por desenhar!`);
-        fecharGartic();
-        return true;
-    } else {
-        await enviarMensagemSistema(`❌ ${usuario} palpitou: "${palpite}" - ERRADO!`);
-        const historyDiv = document.getElementById('guessHistory');
-        const guessItem = document.createElement('div');
-        guessItem.className = 'guess-item';
-        guessItem.innerHTML = `<span style="color:#ff9800">${usuario}</span> palpitou: "${palpite}" ❌`;
-        historyDiv.appendChild(guessItem);
-        return false;
-    }
-}
-
-function fecharGartic() {
-    garticAtivo = false;
-    if (timerInterval) clearInterval(timerInterval);
-    const modal = document.getElementById('garticModal');
-    if (modal) modal.style.display = 'none';
-}
-
-db.collection('garticDesenho').doc('atual').onSnapshot((doc) => {
-    if (doc.exists && garticAtivo && usuarioAtual !== desenhistaAtual) {
-        const imagem = doc.data().imagem;
-        const canvas = document.getElementById('garticCanvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = imagem;
-    }
-});
 
 // ============================================
 // PROCESSAR COMANDOS
@@ -432,20 +318,10 @@ async function processarComando(mensagem, usuario) {
     if (cmd.startsWith('/kick')) { await executarKick(mensagem, usuario); return true; }
     if (cmd === '/forca') { await executarForca(); return true; }
     if (cmd === '/gartic') { await executarGartic(); return true; }
+    if (cmd.startsWith('/gunto')) { await executarGunto(mensagem, usuario); return true; }
     
     return false;
 }
-
-// Escutar alertas do Firebase
-db.collection('alertas').onSnapshot((snapshot) => {
-    snapshot.forEach((doc) => {
-        const alerta = doc.data();
-        if (alerta.tipo === 'gunto') {
-            mostrarGuntoAlert(alerta.mensagem, alerta.autor);
-            doc.ref.delete();
-        }
-    });
-});
 
 // ============================================
 // SISTEMA DE MENSAGENS
@@ -491,14 +367,9 @@ function atualizarInterface() {
 async function enviarMensagemFirebase(conteudo) {
     if (!conteudo.trim() || !usuarioAtual) return;
     
-    // Verificar se é comando
     const isComando = await processarComando(conteudo, usuarioAtual);
     if (isComando) return;
     
-    // Verificar se é palpite do Gartic
-    if (conteudo.startsWith('/')) return;
-    
-    // Se for mensagem normal, enviar
     await adicionarXP(usuarioAtual, XP_POR_MSG);
     const userRef = db.collection('usuarios').doc(usuarioAtual);
     const userDoc = await userRef.get();
@@ -528,18 +399,14 @@ async function enviarMensagemSistema(texto) {
 function carregarMensagens() {
     db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
         let html = '';
-        let mensagensTemp = [];
         
-        snapshot.forEach((doc) => {
-            mensagensTemp.push({ id: doc.id, ...doc.data() });
-        });
-        
-        if (mensagensTemp.length === 0) {
+        if (snapshot.empty) {
             messagesDiv.innerHTML = `<div class="welcome-box">💙 BLUE CHAT 💙<br>🎨 /gartic | 🔫 /gunto | 👢 /kick | 🗑️ /cls | 🪢 /forca</div>`;
             return;
         }
         
-        mensagensTemp.forEach((msg) => {
+        snapshot.forEach((doc) => {
+            const msg = doc.data();
             if (msg.isSystem) {
                 html += `<div class="system-message">💙 ${msg.texto}</div>`;
             } else {
@@ -566,7 +433,7 @@ function carregarMensagens() {
 
 async function atualizarOnlineCount() {
     const snapshot = await db.collection('usuarios').get();
-    onlineCountSpan.textContent = snapshot.size;
+    if (onlineCountSpan) onlineCountSpan.textContent = snapshot.size;
 }
 
 async function entrarNoChat() {
@@ -593,84 +460,30 @@ function enviarMensagem() {
 // EVENTOS
 // ============================================
 let timeoutTyping;
-messageInput.addEventListener('input', () => {
-    if (messageInput.value.length > 0 && usuarioAtual) {
-        typingIndicator.textContent = `${usuarioAtual} está digitando...`;
-        clearTimeout(timeoutTyping);
-        timeoutTyping = setTimeout(() => {
-            typingIndicator.textContent = '';
-        }, 1000);
-    }
-});
-
-// Configurar ferramentas do Gartic
-document.addEventListener('click', (e) => {
-    if (e.target.classList && e.target.classList.contains('tool-btn')) {
-        if (e.target.dataset.clear) {
-            const canvas = document.getElementById('garticCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            if (usuarioAtual === desenhistaAtual) {
-                const imageData = canvas.toDataURL();
-                db.collection('garticDesenho').doc('atual').set({ imagem: imageData, timestamp: new Date() });
-            }
-        } else if (e.target.dataset.color) {
-            corAtual = e.target.dataset.color;
-            const canvas = document.getElementById('garticCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = corAtual;
-        }
-    }
-});
-
-const brushSize = document.getElementById('garticBrushSize');
-if (brushSize) {
-    brushSize.addEventListener('input', (e) => {
-        tamanhoPincel = parseInt(e.target.value);
-        const canvas = document.getElementById('garticCanvas');
-        const ctx = canvas.getContext('2d');
-        ctx.lineWidth = tamanhoPincel;
-        const span = document.getElementById('brushSizeValue');
-        if (span) span.innerText = tamanhoPincel + 'px';
-    });
-}
-
-const guessBtn = document.getElementById('garticGuessBtn');
-if (guessBtn) {
-    guessBtn.addEventListener('click', async () => {
-        const input = document.getElementById('garticGuessInput');
-        const palpite = input.value.trim();
-        if (palpite && garticAtivo) {
-            await palpiteGartic(palpite, usuarioAtual);
-            input.value = '';
+if (messageInput) {
+    messageInput.addEventListener('input', () => {
+        if (messageInput.value.length > 0 && usuarioAtual) {
+            typingIndicator.textContent = `${usuarioAtual} está digitando...`;
+            clearTimeout(timeoutTyping);
+            timeoutTyping = setTimeout(() => {
+                typingIndicator.textContent = '';
+            }, 1000);
         }
     });
 }
 
-const guessInput = document.getElementById('garticGuessInput');
-if (guessInput) {
-    guessInput.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-            const palpite = guessInput.value.trim();
-            if (palpite && garticAtivo) {
-                await palpiteGartic(palpite, usuarioAtual);
-                guessInput.value = '';
-            }
-        }
-    });
-}
-
-const closeGartic = document.getElementById('garticCloseBtn');
-if (closeGartic) closeGartic.addEventListener('click', () => fecharGartic());
-
-loginBtn.addEventListener('click', entrarNoChat);
-sendBtn.addEventListener('click', enviarMensagem);
-messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
-loginInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') entrarNoChat(); });
+if (loginBtn) loginBtn.addEventListener('click', entrarNoChat);
+if (sendBtn) sendBtn.addEventListener('click', enviarMensagem);
+if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
+if (loginInput) loginInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') entrarNoChat(); });
 
 const usuarioSalvo = localStorage.getItem('chatUsername');
-if (usuarioSalvo) { loginInput.value = usuarioSalvo; entrarNoChat(); }
+if (usuarioSalvo && loginInput) {
+    loginInput.value = usuarioSalvo;
+    entrarNoChat();
+}
 
 carregarMensagens();
-setInterval(atualizarOnlineCount, 3000);
+setInterval(atualizarOnlineCount, 5000);
+
+console.log("✅ Chat carregado! Comandos: /gunto, /kick, /cls, /forca, /gartic");
