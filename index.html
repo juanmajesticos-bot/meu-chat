@@ -3,90 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💙 BLUE CHAT - Sistema Profissional</title>
+    <title>💙 BLUE CHAT</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <!-- TELA DE LOGIN -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
-            <div class="logo">
-                <div class="logo-icon">💙</div>
-                <div class="logo-text">BLUE CHAT</div>
-                <div class="logo-subtitle">Professional Communication</div>
-            </div>
-            
+            <div class="logo-icon">💙</div>
+            <h1>BLUE CHAT</h1>
             <div class="login-input-group">
-                <input type="text" id="loginUsername" placeholder="Digite seu nome..." maxlength="20">
-                <button id="loginBtn">🚀 ENTRAR NO CHAT</button>
+                <input type="text" id="loginUsername" placeholder="Seu nome" maxlength="20">
+                <button id="loginBtn">ENTRAR</button>
             </div>
-            
             <div class="login-info">
-                <span>💬 /gunto [msg]</span>
-                <span>👢 /kick @user</span>
-                <span>🗑️ /cls</span>
-                <span>🪢 /forca</span>
+                <span>/gunto [msg]</span>
+                <span>/kick @user</span>
+                <span>/cls</span>
+                <span>/forca</span>
+                <span>/gartic</span>
             </div>
         </div>
     </div>
 
-    <!-- TELA DO CHAT -->
     <div class="chat-main" id="chatMain" style="display: none;">
         <div class="chat-container">
-            <!-- CABEÇALHO -->
             <div class="chat-header">
-                <div class="logo-small">
-                    <div class="logo-small-icon">💙</div>
-                    <div class="logo-small-text">BLUE CHAT</div>
-                </div>
                 <div class="user-info">
                     <div class="user-avatar" id="userAvatar">👤</div>
                     <div class="user-details">
                         <div class="user-name" id="userName">---</div>
-                        <div class="user-level-badge">
-                            <span class="level-number" id="userLevel">Nv.1</span>
-                            <span class="level-title" id="userTitle">⭐ INICIANTE</span>
+                        <div class="user-level">
+                            <span id="userLevel">Nv.1</span>
+                            <span id="userTitle">INICIANTE</span>
                         </div>
-                        <div class="xp-container">
-                            <div class="xp-bar-bg">
-                                <div class="xp-bar-fill" id="xpBarFill" style="width: 0%;"></div>
-                            </div>
-                            <div class="xp-text" id="xpText">0/100 XP</div>
+                        <div class="xp-bar">
+                            <div class="xp-fill" id="xpBarFill"></div>
+                            <span id="xpText">0/100 XP</span>
                         </div>
                     </div>
                 </div>
-                <div class="online-count">
-                    <span class="online-dot"></span>
-                    <span id="onlineCount">0</span> online
-                </div>
+                <div class="online-count">👥 <span id="onlineCount">0</span></div>
             </div>
 
-            <!-- ÁREA DAS MENSAGENS -->
             <div class="messages-area" id="messagesArea">
-                <div class="welcome-box">
-                    💙 BEM-VINDO AO BLUE CHAT! 💙<br>
-                    🔫 /gunto [mensagem] - Alerta em todas as telas!<br>
-                    👢 /kick @usuario - Expulsa usuário (Nv.5+)<br>
-                    🗑️ /cls - Limpa todas as mensagens!<br>
-                    🪢 /forca - Jogo da forca!
-                </div>
+                <div class="welcome-box">💙 BEM-VINDO! Use /gunto [msg]</div>
             </div>
 
-            <!-- ÁREA DE DIGITAR -->
             <div class="typing-area">
-                <div class="input-wrapper">
-                    <input type="text" id="messageInput" placeholder="Digite sua mensagem ou comando..." maxlength="500">
-                    <button id="sendBtn">📤 ENVIAR</button>
-                </div>
+                <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+                <button id="sendBtn">ENVIAR</button>
                 <div class="typing-indicator" id="typingIndicator"></div>
             </div>
         </div>
-        
-        <!-- NOTIFICAÇÃO GUNTO -->
-        <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
     </div>
+
+    <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
 
     <script src="script.js"></script>
 </body>

@@ -1,42 +1,21 @@
-// ============================================
-// CONFIGURAÇÃO DO FIREBASE
-// ============================================
+// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyC5yWUgfpwD3g6FU1VKhHiZW2Q1XBs_TWs",
     authDomain: "chat-79da1.firebaseapp.com",
     projectId: "chat-79da1",
     storageBucket: "chat-79da1.firebasestorage.app",
     messagingSenderId: "832541118241",
-    appId: "1:832541118241:web:5d3c8e2650877106b13860",
-    measurementId: "G-C0N1M4Q99F"
+    appId: "1:832541118241:web:5d3c8e2650877106b13860"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ============================================
-// SISTEMA DE XP E NÍVEIS
-// ============================================
-const XP_POR_MSG = 5;
-const XP_POR_NIVEL = 100;
-
-function getTituloPorNivel(nivel) {
-    if (nivel >= 20) return "👑 LENDA 👑";
-    if (nivel >= 15) return "⚡ MESTRE ⚡";
-    if (nivel >= 10) return "💎 ÉLITE 💎";
-    if (nivel >= 5) return "🏆 VETERANO 🏆";
-    if (nivel >= 3) return "📈 APRENDIZ 📈";
-    return "⭐ INICIANTE ⭐";
-}
-
-function calcularNivel(xp) { return Math.floor(xp / XP_POR_NIVEL) + 1; }
-function getXpAtual(xp) { return xp % XP_POR_NIVEL; }
-
+// VARIÁVEIS
 let usuarioAtual = null;
 let dadosUsuario = null;
-let mensagensCache = new Set();
 
-// Elementos DOM
+// DOM
 const telaLogin = document.getElementById('loginScreen');
 const telaChat = document.getElementById('chatMain');
 const loginBtn = document.getElementById('loginBtn');
@@ -53,69 +32,67 @@ const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const typingIndicator = document.getElementById('typingIndicator');
 
-function getHoraAtual() {
-    const now = new Date();
-    return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+// SISTEMA DE NÍVEL
+function getTitulo(nivel) {
+    if (nivel >= 20) return "👑 LENDA";
+    if (nivel >= 15) return "⚡ MESTRE";
+    if (nivel >= 10) return "💎 ÉLITE";
+    if (nivel >= 5) return "🏆 VETERANO";
+    return "⭐ INICIANTE";
+}
+
+function getHora() {
+    return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 // ============================================
-// COMANDO GUNTO - CORRIGIDO
+// GUNTO - CORRIGIDO
 // ============================================
-
-async function executarGunto(mensagem, autor) {
-    const textoGunto = mensagem.substring(6).trim();
-    
-    if (!textoGunto) {
-        await enviarMensagemSistema("Uso correto: /gunto [mensagem]");
-        return true;
-    }
-    
-    console.log("✅ GUNTO executado por:", autor, "| Msg:", textoGunto);
-    
-    // Mostrar para quem enviou
-    mostrarGuntoAlert(textoGunto, autor);
-    
-    // Salvar no Firebase para outros
-    await db.collection('alertas').add({
-        tipo: 'gunto',
-        mensagem: textoGunto,
-        autor: autor,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    await enviarMensagemSistema(`🔫 ${autor} usou GUNTO: "${textoGunto}"`);
-    return true;
-}
-
 let guntoTimeout = null;
 
-function mostrarGuntoAlert(mensagem, autor) {
-    const alertDiv = document.getElementById('guntoAlert');
-    if (!alertDiv) return;
+function mostrarGunto(mensagem, autor) {
+    const alerta = document.getElementById('guntoAlert');
+    if (!alerta) return;
     
     if (guntoTimeout) clearTimeout(guntoTimeout);
     
-    alertDiv.innerHTML = `
-        <div style="text-align: center;">
-            🔫 <strong style="font-size: 1.5rem;">${autor} DISPAROU!</strong> 🔫<br>
-            💙 <strong style="font-size: 1.3rem;">${mensagem}</strong> 💙
-        </div>
-    `;
-    alertDiv.style.display = 'flex';
+    alerta.innerHTML = `🔫 ${autor} DISPAROU!<br>💙 ${mensagem} 💙`;
+    alerta.style.display = 'flex';
     
     guntoTimeout = setTimeout(() => {
-        alertDiv.style.display = 'none';
-        guntoTimeout = null;
-    }, 5000);
+        alerta.style.display = 'none';
+    }, 4000);
+}
+
+async function enviarGunto(mensagem, autor) {
+    const texto = mensagem.substring(6).trim();
+    if (!texto) {
+        await enviarMsgSistema("Use: /gunto [mensagem]");
+        return true;
+    }
+    
+    // Mostra pra quem enviou
+    mostrarGunto(texto, autor);
+    
+    // Salva no Firebase pra outros verem
+    await db.collection('alertas').add({
+        tipo: 'gunto',
+        mensagem: texto,
+        autor: autor,
+        timestamp: new Date()
+    });
+    
+    await enviarMsgSistema(`🔫 ${autor} usou GUNTO: "${texto}"`);
+    return true;
 }
 
 // Escutar alertas do Firebase
-db.collection('alertas').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
+db.collection('alertas').onSnapshot((snapshot) => {
     snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
             const alerta = change.doc.data();
             if (alerta.autor !== usuarioAtual) {
-                mostrarGuntoAlert(alerta.mensagem, alerta.autor);
+                mostrarGunto(alerta.mensagem, alerta.autor);
             }
             change.doc.ref.delete();
         }
@@ -123,48 +100,38 @@ db.collection('alertas').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
 });
 
 // ============================================
-// COMANDO CLS
+// OUTROS COMANDOS
 // ============================================
-async function executarCls(autor) {
-    try {
-        const snapshot = await db.collection('mensagens').get();
-        const batch = db.batch();
-        snapshot.forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-        mensagensCache.clear();
-        await enviarMensagemSistema(`🗑️ Todas as mensagens foram limpas por ${autor}!`);
-    } catch (error) {
-        console.error("Erro ao limpar:", error);
-    }
+async function enviarMsgSistema(texto) {
+    await db.collection('mensagens').add({
+        usuario: '💙 SISTEMA',
+        texto: texto,
+        timestamp: new Date(),
+        hora: getHora(),
+        isSystem: true
+    });
 }
 
-// ============================================
-// COMANDO KICK
-// ============================================
-async function executarKick(mensagem, autor) {
+async function limparChat(autor) {
+    const msgs = await db.collection('mensagens').get();
+    const batch = db.batch();
+    msgs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    await enviarMsgSistema(`🗑️ Chat limpo por ${autor}`);
+}
+
+async function kickUser(mensagem, autor) {
     const partes = mensagem.split(' ');
     const alvo = partes[1]?.replace('@', '');
-    
     if (!alvo) {
-        enviarMensagemSistema("Uso correto: /kick @usuario");
+        await enviarMsgSistema("Use: /kick @usuario");
         return true;
     }
-    
     if (autor === alvo) {
-        enviarMensagemSistema(`${autor} tentou se kickar mas falhou! 🤡`);
+        await enviarMsgSistema(`${autor} não pode se kickar`);
         return true;
     }
-    
-    const autorRef = await db.collection('usuarios').doc(autor).get();
-    const autorNivel = autorRef.exists ? (autorRef.data().nivel || 1) : 1;
-    
-    if (autorNivel < 5) {
-        enviarMensagemSistema(`${autor} tentou kickar mas precisa ser nível 5+!`);
-        return true;
-    }
-    
-    await enviarMensagemSistema(`💀 ${alvo} foi EXPULSO do chat por ${autor}! 💀`);
-    
+    await enviarMsgSistema(`💀 ${alvo} foi expulso por ${autor}`);
     if (alvo === usuarioAtual) {
         setTimeout(() => {
             localStorage.removeItem('chatUsername');
@@ -175,315 +142,145 @@ async function executarKick(mensagem, autor) {
 }
 
 // ============================================
-// JOGO DA FORCA
-// ============================================
-let jogoAtivo = false;
-let palavraAtual = "";
-let letrasAdivinhadas = [];
-let tentativasRestantes = 6;
-
-const palavrasForca = [
-    "HACKER", "MATRIX", "SISTEMA", "FIREBASE", "TERMINAL",
-    "CODIGO", "SENHA", "CRIPTOGRAFIA", "ALGORITIMO", "PROTOCOLO"
-];
-
-async function executarForca() {
-    if (jogoAtivo) {
-        await enviarMensagemSistema("Já tem um jogo da forca ativo!");
-        return true;
-    }
-    
-    jogoAtivo = true;
-    palavraAtual = palavrasForca[Math.floor(Math.random() * palavrasForca.length)];
-    letrasAdivinhadas = [];
-    tentativasRestantes = 6;
-    
-    mostrarModalForca();
-    return true;
-}
-
-function mostrarModalForca() {
-    const modal = document.createElement('div');
-    modal.className = 'hangman-modal';
-    modal.id = 'hangmanModal';
-    
-    function atualizarModal() {
-        const palavraExibida = palavraAtual.split('').map(letra => 
-            letrasAdivinhadas.includes(letra) ? letra : '_'
-        ).join(' ');
-        
-        modal.innerHTML = `
-            <div class="hangman-content">
-                <h2>🪢 JOGO DA FORCA</h2>
-                <div class="hangman-word">${palavraExibida}</div>
-                <div class="hangman-attempts">💀 Tentativas: ${tentativasRestantes} / 6</div>
-                <input type="text" maxlength="1" placeholder="?" class="hangman-input" id="hangmanLetter" autocomplete="off">
-                <div><button id="hangmanGuessBtn">ADIVINHAR</button><button id="hangmanCloseBtn">FECHAR</button></div>
-                <div style="margin-top:15px;font-size:12px;color:#666;">Letras: ${letrasAdivinhadas.join(', ') || 'nenhuma'}</div>
-            </div>
-        `;
-        
-        const input = modal.querySelector('#hangmanLetter');
-        const guessBtn = modal.querySelector('#hangmanGuessBtn');
-        const closeBtn = modal.querySelector('#hangmanCloseBtn');
-        
-        guessBtn.onclick = async () => {
-            const letra = input.value.toUpperCase();
-            if (!letra || letra.length !== 1) return;
-            if (letrasAdivinhadas.includes(letra)) {
-                await enviarMensagemSistema(`Letra "${letra}" já foi usada!`);
-                input.value = '';
-                return;
-            }
-            
-            letrasAdivinhadas.push(letra);
-            
-            if (palavraAtual.includes(letra)) {
-                await enviarMensagemSistema(`✅ Letra "${letra}" está na palavra!`);
-                const palavraCompleta = palavraAtual.split('').every(l => letrasAdivinhadas.includes(l));
-                if (palavraCompleta) {
-                    await enviarMensagemSistema(`🎉 ${usuarioAtual} acertou a palavra "${palavraAtual}" e ganhou +50 XP! 🎉`);
-                    await adicionarXP(usuarioAtual, 50);
-                    jogoAtivo = false;
-                    modal.remove();
-                } else {
-                    atualizarModal();
-                }
-            } else {
-                tentativasRestantes--;
-                await enviarMensagemSistema(`❌ Letra "${letra}" não está na palavra!`);
-                if (tentativasRestantes <= 0) {
-                    await enviarMensagemSistema(`💀 FIM DE JOGO! A palavra era "${palavraAtual}"! 💀`);
-                    jogoAtivo = false;
-                    modal.remove();
-                } else {
-                    atualizarModal();
-                }
-            }
-            input.value = '';
-            input.focus();
-        };
-        
-        closeBtn.onclick = () => {
-            jogoAtivo = false;
-            modal.remove();
-        };
-        
-        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') guessBtn.click(); });
-    }
-    
-    atualizarModal();
-    document.body.appendChild(modal);
-}
-
-// ============================================
-// JOGO GARTIC (SIMPLIFICADO)
-// ============================================
-let garticAtivo = false;
-let palavraSecreta = "";
-let desenhistaAtual = "";
-
-const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA"];
-
-async function executarGartic() {
-    if (garticAtivo) {
-        await enviarMensagemSistema("🎨 Já tem um jogo Gartic ativo!");
-        return true;
-    }
-    
-    garticAtivo = true;
-    palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
-    desenhistaAtual = usuarioAtual;
-    
-    await enviarMensagemSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
-    
-    // Simplificado - apenas aviso
-    setTimeout(() => {
-        if (garticAtivo) {
-            enviarMensagemSistema(`⏰ Tempo do Gartic acabou! A palavra era "${palavraSecreta}"`);
-            garticAtivo = false;
-        }
-    }, 60000);
-    
-    return true;
-}
-
-// ============================================
 // PROCESSAR COMANDOS
 // ============================================
-async function processarComando(mensagem, usuario) {
-    const cmd = mensagem.toLowerCase().trim();
+async function processarComando(msg, user) {
+    const cmd = msg.toLowerCase().trim();
     
-    if (cmd === '/cls') { await executarCls(usuario); return true; }
-    if (cmd.startsWith('/kick')) { await executarKick(mensagem, usuario); return true; }
-    if (cmd === '/forca') { await executarForca(); return true; }
-    if (cmd === '/gartic') { await executarGartic(); return true; }
-    if (cmd.startsWith('/gunto')) { await executarGunto(mensagem, usuario); return true; }
-    
+    if (cmd === '/cls') {
+        await limparChat(user);
+        return true;
+    }
+    if (cmd.startsWith('/kick')) {
+        await kickUser(msg, user);
+        return true;
+    }
+    if (cmd.startsWith('/gunto')) {
+        return await enviarGunto(msg, user);
+    }
+    if (cmd === '/forca') {
+        await enviarMsgSistema("🎮 Jogo da forca em breve!");
+        return true;
+    }
+    if (cmd === '/gartic') {
+        await enviarMsgSistema("🎨 Gartic em breve!");
+        return true;
+    }
     return false;
 }
 
 // ============================================
-// SISTEMA DE MENSAGENS
+// MENSAGENS
 // ============================================
-async function adicionarXP(username, quantidade) {
-    try {
-        const userRef = db.collection('usuarios').doc(username);
-        const userDoc = await userRef.get();
-        let xpAtual = quantidade;
-        if (userDoc.exists) xpAtual = (userDoc.data().xp || 0) + quantidade;
-        const novoNivel = calcularNivel(xpAtual);
-        await userRef.set({ nome: username, xp: xpAtual, nivel: novoNivel }, { merge: true });
-        if (username === usuarioAtual) await carregarDadosUsuario();
-    } catch (error) { console.error("Erro XP:", error); }
-}
-
-async function carregarDadosUsuario() {
-    if (!usuarioAtual) return;
-    const userRef = db.collection('usuarios').doc(usuarioAtual);
-    const userDoc = await userRef.get();
-    dadosUsuario = userDoc.exists ? userDoc.data() : { nome: usuarioAtual, xp: 0, nivel: 1 };
-    if (!userDoc.exists) await userRef.set(dadosUsuario);
-    atualizarInterface();
-}
-
-function atualizarInterface() {
-    if (!dadosUsuario) return;
-    const nivel = dadosUsuario.nivel || 1;
-    const xp = dadosUsuario.xp || 0;
-    const xpAtual = getXpAtual(xp);
-    const percentual = (xpAtual / XP_POR_NIVEL) * 100;
-    userNameSpan.textContent = usuarioAtual;
-    userLevelSpan.textContent = `Nv. ${nivel}`;
-    userTitleSpan.textContent = getTituloPorNivel(nivel);
-    xpBarFill.style.width = `${percentual}%`;
-    xpTextSpan.textContent = `${xpAtual}/${XP_POR_NIVEL} XP`;
-    if (nivel >= 20) userAvatar.textContent = "👑";
-    else if (nivel >= 10) userAvatar.textContent = "💎";
-    else if (nivel >= 5) userAvatar.textContent = "🏆";
-    else userAvatar.textContent = "👤";
-}
-
-async function enviarMensagemFirebase(conteudo) {
-    if (!conteudo.trim() || !usuarioAtual) return;
+async function enviarMensagem(texto) {
+    if (!texto.trim() || !usuarioAtual) return;
     
-    const isComando = await processarComando(conteudo, usuarioAtual);
+    const isComando = await processarComando(texto, usuarioAtual);
     if (isComando) return;
-    
-    await adicionarXP(usuarioAtual, XP_POR_MSG);
-    const userRef = db.collection('usuarios').doc(usuarioAtual);
-    const userDoc = await userRef.get();
-    const nivel = userDoc.exists ? (userDoc.data().nivel || 1) : 1;
-    const titulo = getTituloPorNivel(nivel);
     
     await db.collection('mensagens').add({
         usuario: usuarioAtual,
-        texto: conteudo,
-        nivel: nivel,
-        titulo: titulo,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        hora: getHoraAtual()
-    });
-}
-
-async function enviarMensagemSistema(texto) {
-    await db.collection('mensagens').add({
-        usuario: '💙 SISTEMA',
         texto: texto,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        hora: getHoraAtual(),
-        isSystem: true
+        timestamp: new Date(),
+        hora: getHora()
     });
 }
 
 function carregarMensagens() {
-    db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
-        let html = '';
-        
-        if (snapshot.empty) {
-            messagesDiv.innerHTML = `<div class="welcome-box">💙 BLUE CHAT 💙<br>🎨 /gartic | 🔫 /gunto | 👢 /kick | 🗑️ /cls | 🪢 /forca</div>`;
-            return;
-        }
-        
-        snapshot.forEach((doc) => {
-            const msg = doc.data();
-            if (msg.isSystem) {
-                html += `<div class="system-message">💙 ${msg.texto}</div>`;
-            } else {
-                const isOwn = usuarioAtual === msg.usuario;
-                const messageClass = isOwn ? 'message-own' : 'message-other';
-                html += `
-                    <div class="message ${messageClass}">
-                        <div class="message-info">
-                            ${!isOwn ? `<span class="message-name">${msg.usuario}</span>` : ''}
-                            ${msg.nivel ? `<span class="message-level">Nv.${msg.nivel}</span>` : ''}
-                            ${msg.titulo ? `<span class="message-title">${msg.titulo}</span>` : ''}
-                            <span class="message-time">${msg.hora || 'agora'}</span>
-                        </div>
-                        <div class="message-bubble">${msg.texto}</div>
-                    </div>
-                `;
+    db.collection('mensagens')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot((snap) => {
+            if (snap.empty) {
+                messagesDiv.innerHTML = '<div class="welcome-box">💙 Use /gunto [msg]</div>';
+                return;
             }
+            
+            let html = '';
+            snap.forEach(doc => {
+                const msg = doc.data();
+                if (msg.isSystem) {
+                    html += `<div class="system-message">${msg.texto}</div>`;
+                } else {
+                    const isOwn = usuarioAtual === msg.usuario;
+                    const cls = isOwn ? 'message-own' : 'message-other';
+                    html += `
+                        <div class="message ${cls}">
+                            <div class="message-info">
+                                ${!isOwn ? `<span class="message-name">${msg.usuario}</span>` : ''}
+                                <span class="message-time">${msg.hora}</span>
+                            </div>
+                            <div class="message-bubble">${msg.texto}</div>
+                        </div>
+                    `;
+                }
+            });
+            messagesDiv.innerHTML = html;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
-        
-        messagesDiv.innerHTML = html;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
 }
 
-async function atualizarOnlineCount() {
-    const snapshot = await db.collection('usuarios').get();
-    if (onlineCountSpan) onlineCountSpan.textContent = snapshot.size;
+async function carregarUsuario(nome) {
+    const ref = db.collection('usuarios').doc(nome);
+    const doc = await ref.get();
+    if (!doc.exists) {
+        dadosUsuario = { nome: nome, xp: 0, nivel: 1 };
+        await ref.set(dadosUsuario);
+    } else {
+        dadosUsuario = doc.data();
+    }
+    
+    userNameSpan.textContent = nome;
+    const nivel = dadosUsuario.nivel || 1;
+    userLevelSpan.textContent = `Nv.${nivel}`;
+    userTitleSpan.textContent = getTitulo(nivel);
 }
 
-async function entrarNoChat() {
+async function entrarChat() {
     const nome = loginInput.value.trim();
-    if (!nome) return alert('Digite seu nome!');
-    if (nome.length > 20) return alert('Nome muito longo!');
+    if (!nome) return alert('Digite seu nome');
     usuarioAtual = nome;
     localStorage.setItem('chatUsername', nome);
-    await carregarDadosUsuario();
-    await enviarMensagemSistema(`${nome} entrou no chat! 💙`);
+    await carregarUsuario(nome);
+    await enviarMsgSistema(`${nome} entrou no chat`);
     telaLogin.style.display = 'none';
     telaChat.style.display = 'flex';
     messageInput.focus();
 }
 
-function enviarMensagem() {
-    const texto = messageInput.value.trim();
-    if (!texto) return;
-    enviarMensagemFirebase(texto);
-    messageInput.value = '';
-}
-
-// ============================================
 // EVENTOS
-// ============================================
-let timeoutTyping;
-if (messageInput) {
-    messageInput.addEventListener('input', () => {
-        if (messageInput.value.length > 0 && usuarioAtual) {
-            typingIndicator.textContent = `${usuarioAtual} está digitando...`;
-            clearTimeout(timeoutTyping);
-            timeoutTyping = setTimeout(() => {
-                typingIndicator.textContent = '';
-            }, 1000);
-        }
-    });
-}
+loginBtn.onclick = entrarChat;
+sendBtn.onclick = () => {
+    enviarMensagem(messageInput.value);
+    messageInput.value = '';
+};
+messageInput.onkeypress = (e) => {
+    if (e.key === 'Enter') {
+        enviarMensagem(messageInput.value);
+        messageInput.value = '';
+    }
+};
+loginInput.onkeypress = (e) => { if (e.key === 'Enter') entrarChat(); };
 
-if (loginBtn) loginBtn.addEventListener('click', entrarNoChat);
-if (sendBtn) sendBtn.addEventListener('click', enviarMensagem);
-if (messageInput) messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
-if (loginInput) loginInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') entrarNoChat(); });
+let typingTime;
+messageInput.oninput = () => {
+    if (messageInput.value.length > 0 && usuarioAtual) {
+        typingIndicator.textContent = `${usuarioAtual} digitando...`;
+        clearTimeout(typingTime);
+        typingTime = setTimeout(() => typingIndicator.textContent = '', 1000);
+    }
+};
 
-const usuarioSalvo = localStorage.getItem('chatUsername');
-if (usuarioSalvo && loginInput) {
-    loginInput.value = usuarioSalvo;
-    entrarNoChat();
+// INICIAR
+const salvo = localStorage.getItem('chatUsername');
+if (salvo && loginInput) {
+    loginInput.value = salvo;
+    entrarChat();
 }
 
 carregarMensagens();
-setInterval(atualizarOnlineCount, 5000);
+setInterval(async () => {
+    const snap = await db.collection('usuarios').get();
+    if (onlineCountSpan) onlineCountSpan.textContent = snap.size;
+}, 5000);
 
-console.log("✅ Chat carregado! Comandos: /gunto, /kick, /cls, /forca, /gartic");
+console.log("✅ CHAT PRONTO! Comandos: /gunto [msg], /kick @user, /cls");
