@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎮 CHAT XP - Sistema de Níveis</title>
+    <title>🔴 HACKER CHAT - Sistema de Poder</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -12,34 +12,38 @@
     <!-- TELA DE LOGIN -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
-            <div class="login-icon">🎮</div>
-            <h1>CHAT XP</h1>
-            <p>Digite seu nome e comece a ganhar experiência!</p>
+            <div class="login-icon">💀</div>
+            <h1>HACKER CHAT</h1>
+            <p>⚠️ Entre se tiver coragem ⚠️</p>
             
             <div class="login-input-group">
-                <input type="text" id="loginUsername" placeholder="Seu nome..." maxlength="20">
-                <button id="loginBtn">🎯 ENTRAR NO CHAT</button>
+                <input type="text" id="loginUsername" placeholder="Nickname..." maxlength="20">
+                <button id="loginBtn">🔓 INVADIR</button>
             </div>
             
             <div class="login-info">
-                <span>💬 +5 XP por mensagem</span>
-                <span>🏆 Nível 20 = LENDA</span>
+                <span>💀 /gunto</span>
+                <span>👢 /kick @nome</span>
+                <span>🪢 /forca</span>
             </div>
         </div>
     </div>
 
     <!-- TELA DO CHAT -->
     <div class="chat-main" id="chatMain" style="display: none;">
+        <!-- MATRIZ DE CÓDIGO PASSANDO (HACKER EFFECT) -->
+        <canvas id="matrixCanvas"></canvas>
+        
         <div class="chat-container">
-            <!-- CABEÇALHO COM PERFIL -->
+            <!-- CABEÇALHO -->
             <div class="chat-header">
                 <div class="user-info">
-                    <div class="user-avatar" id="userAvatar">👤</div>
+                    <div class="user-avatar" id="userAvatar">💀</div>
                     <div class="user-details">
                         <div class="user-name" id="userName">---</div>
                         <div class="user-level-badge">
                             <span class="level-number" id="userLevel">Nv.1</span>
-                            <span class="level-title" id="userTitle">⭐ INICIANTE</span>
+                            <span class="level-title" id="userTitle">⭐ INVASOR</span>
                         </div>
                         <div class="xp-container">
                             <div class="xp-bar-bg">
@@ -57,21 +61,25 @@
             <!-- ÁREA DAS MENSAGENS -->
             <div class="messages-area" id="messagesArea">
                 <div class="welcome-box">
-                    🎮 BEM-VINDO AO CHAT XP! 🎮<br>
-                    Cada mensagem dá +5 XP!<br>
-                    Chegue no nível 20 e vire LENDA!
+                    💀 BEM-VINDO AO HACKER CHAT! 💀<br>
+                    🔫 /gunto [mensagem] - Aparece na tela de todos!<br>
+                    👢 /kick @usuario - Expulsa o hacker!<br>
+                    🪢 /forca - Jogo da forca!
                 </div>
             </div>
 
             <!-- ÁREA DE DIGITAR -->
-            <div class="typing-area" id="typingArea">
+            <div class="typing-area">
                 <div class="input-wrapper">
-                    <input type="text" id="messageInput" placeholder="Digite sua mensagem..." maxlength="500">
-                    <button id="sendBtn">📤 ENVIAR</button>
+                    <input type="text" id="messageInput" placeholder="Digite sua mensagem ou comando..." maxlength="500">
+                    <button id="sendBtn">💀 ENVIAR</button>
                 </div>
                 <div class="typing-indicator" id="typingIndicator"></div>
             </div>
         </div>
+        
+        <!-- NOTIFICAÇÃO GUNTO -->
+        <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
     </div>
 
     <script src="script.js"></script>
