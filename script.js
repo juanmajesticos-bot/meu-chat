@@ -1,4 +1,6 @@
-// 🔥 SUAS CONFIGURAÇÕES DO FIREBASE 🔥
+// ============================================
+// CONFIGURAÇÃO DO FIREBASE (SUA CONTA)
+// ============================================
 const firebaseConfig = {
     apiKey: "AIzaSyC5yWUgfpwD3g6FU1VKhHiZW2Q1XBs_TWs",
     authDomain: "chat-79da1.firebaseapp.com",
@@ -13,336 +15,325 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ============================================
-// SISTEMA DE NÍVEIS E TÍTULOS
-// ============================================
-const XP_POR_MENSAGEM = 5;
-const XP_NECESSARIO = 100;
+console.log("Firebase inicializado com sucesso!"); // Para testar
 
-// Títulos por nível
-function getTitleByLevel(level) {
-    if (level >= 20) return "👑 LENDA VIVA 👑";
-    if (level >= 15) return "⚔️ GUERREIRO ÉPICO ⚔️";
-    if (level >= 10) return "🌟 MESTRE 🌟";
-    if (level >= 5) return "⚜️ CAVALEIRO ⚜️";
-    if (level >= 3) return "🔰 APRENDIZ 🔰";
-    if (level >= 1) return "⭐ INICIANTE ⭐";
-    return "🌱 RECRUTA 🌱";
+// ============================================
+// SISTEMA DE XP E NÍVEIS
+// ============================================
+const XP_POR_MSG = 5;
+const XP_POR_NIVEL = 100;
+
+function getTituloPorNivel(nivel) {
+    if (nivel >= 20) return "👑 LENDA VIVA 👑";
+    if (nivel >= 15) return "⚔️ GUERREIRO ÉPICO ⚔️";
+    if (nivel >= 10) return "🌟 MESTRE 🌟";
+    if (nivel >= 5) return "⚜️ CAVALEIRO ⚜️";
+    if (nivel >= 3) return "🔰 APRENDIZ 🔰";
+    return "⭐ INICIANTE ⭐";
 }
 
-// Calcular nível baseado no XP
-function calculateLevel(xp) {
-    return Math.floor(xp / XP_NECESSARIO) + 1;
+function calcularNivel(xp) {
+    return Math.floor(xp / XP_POR_NIVEL) + 1;
 }
 
-// Calcular XP do nível atual
-function getCurrentLevelXP(xp) {
-    return xp % XP_NECESSARIO;
+function getXpAtual(xp) {
+    return xp % XP_POR_NIVEL;
 }
 
 // ============================================
-// DADOS DO USUÁRIO
+// VARIÁVEIS GLOBAIS
 // ============================================
-let currentUser = localStorage.getItem('chatUsername') || null;
-let currentUserData = null;
-let messages = [];
+let usuarioAtual = null;
+let dadosUsuario = null;
 
-// Elementos do DOM
-const messagesArea = document.getElementById('messagesArea');
-const nameContainer = document.getElementById('nameContainer');
-const messageContainer = document.getElementById('messageContainer');
-const usernameInput = document.getElementById('usernameInput');
-const setNameBtn = document.getElementById('setNameBtn');
+// Elementos DOM
+const telaLogin = document.getElementById('loginScreen');
+const telaChat = document.getElementById('chatMain');
+const loginBtn = document.getElementById('loginBtn');
+const loginInput = document.getElementById('loginUsername');
+const userNameSpan = document.getElementById('userName');
+const userLevelSpan = document.getElementById('userLevel');
+const userTitleSpan = document.getElementById('userTitle');
+const xpBarFill = document.getElementById('xpBarFill');
+const xpTextSpan = document.getElementById('xpText');
+const userAvatar = document.getElementById('userAvatar');
+const onlineCountSpan = document.getElementById('onlineCount');
+const messagesDiv = document.getElementById('messagesArea');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const typingIndicator = document.getElementById('typingIndicator');
-const participantCount = document.getElementById('participantCount');
-const userNameDisplay = document.getElementById('userNameDisplay');
-const userLevel = document.getElementById('userLevel');
-const userTitle = document.getElementById('userTitle');
-const userXpBar = document.getElementById('userXpBar');
-const userXpText = document.getElementById('userXpText');
-const userAvatar = document.getElementById('userAvatar');
 
 // ============================================
-// FUNÇÕES DO SISTEMA DE XP
+// ATUALIZAR INTERFACE
 // ============================================
-
-// Atualizar UI do usuário com seus dados de XP
-function updateUserUI() {
-    if (!currentUserData) return;
+function atualizarInterface() {
+    if (!dadosUsuario) return;
     
-    const level = currentUserData.level || 1;
-    const xp = currentUserData.xp || 0;
-    const currentLevelXP = getCurrentLevelXP(xp);
-    const percentXP = (currentLevelXP / XP_NECESSARIO) * 100;
+    const nivel = dadosUsuario.nivel || 1;
+    const xp = dadosUsuario.xp || 0;
+    const xpAtual = getXpAtual(xp);
+    const percentual = (xpAtual / XP_POR_NIVEL) * 100;
     
-    userNameDisplay.textContent = currentUser;
-    userLevel.textContent = `Nv. ${level}`;
-    userTitle.textContent = getTitleByLevel(level);
-    userXpBar.style.width = `${percentXP}%`;
-    userXpText.textContent = `${currentLevelXP}/${XP_NECESSARIO} XP`;
+    userNameSpan.textContent = usuarioAtual;
+    userLevelSpan.textContent = `Nv. ${nivel}`;
+    userTitleSpan.textContent = getTituloPorNivel(nivel);
+    xpBarFill.style.width = `${percentual}%`;
+    xpTextSpan.textContent = `${xpAtual}/${XP_POR_NIVEL} XP`;
     
-    // Avatar muda conforme nível
-    if (level >= 20) userAvatar.textContent = "👑";
-    else if (level >= 10) userAvatar.textContent = "🌟";
-    else if (level >= 5) userAvatar.textContent = "⚔️";
+    if (nivel >= 20) userAvatar.textContent = "👑";
+    else if (nivel >= 10) userAvatar.textContent = "🌟";
+    else if (nivel >= 5) userAvatar.textContent = "⚔️";
     else userAvatar.textContent = "👤";
 }
 
-// Mostrar notificação de level up
-function showLevelUpNotification(newLevel, oldLevel) {
-    if (newLevel > oldLevel) {
-        const title = getTitleByLevel(newLevel);
-        const notification = document.createElement('div');
-        notification.className = 'level-up-notification';
-        notification.innerHTML = `🎉 LEVEL UP! 🎉<br>Nível ${newLevel} - ${title}`;
-        document.body.appendChild(notification);
+// ============================================
+// NOTIFICAÇÃO DE LEVEL UP
+// ============================================
+function mostrarLevelUp(novoNivel, nivelAntigo) {
+    if (novoNivel > nivelAntigo) {
+        const titulo = getTituloPorNivel(novoNivel);
+        const toast = document.createElement('div');
+        toast.className = 'level-up-toast';
+        toast.innerHTML = `🎉 LEVEL UP! 🎉<br>Nível ${novoNivel} - ${titulo}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
         
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-        
-        // Mensagem de sistema no chat
-        addSystemMessage(`🏆 ${currentUser} subiu para o Nível ${newLevel} e agora é ${title}! 🏆`);
+        enviarMensagemSistema(`🏆 ${usuarioAtual} subiu para o Nível ${novoNivel} e agora é ${titulo}! 🏆`);
     }
-}
-
-// Adicionar XP ao usuário
-async function addXP(username, amount) {
-    const userRef = db.collection('users').doc(username);
-    const userDoc = await userRef.get();
-    
-    let oldLevel = 1;
-    let newXP = amount;
-    
-    if (userDoc.exists) {
-        oldLevel = userDoc.data().level || 1;
-        newXP = (userDoc.data().xp || 0) + amount;
-    }
-    
-    const newLevel = calculateLevel(newXP);
-    
-    await userRef.set({
-        username: username,
-        xp: newXP,
-        level: newLevel,
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    
-    showLevelUpNotification(newLevel, oldLevel);
-    
-    // Atualizar dados do usuário atual
-    if (username === currentUser) {
-        await loadUserData();
-    }
-}
-
-// Carregar dados do usuário atual
-async function loadUserData() {
-    if (!currentUser) return;
-    
-    const userRef = db.collection('users').doc(currentUser);
-    const userDoc = await userRef.get();
-    
-    if (userDoc.exists) {
-        currentUserData = userDoc.data();
-    } else {
-        currentUserData = { username: currentUser, xp: 0, level: 1 };
-        await userRef.set(currentUserData);
-    }
-    
-    updateUserUI();
 }
 
 // ============================================
-// FUNÇÕES DO CHAT
+// ADICIONAR XP
 // ============================================
+async function adicionarXP(username, quantidade) {
+    try {
+        const userRef = db.collection('usuarios').doc(username);
+        const userDoc = await userRef.get();
+        
+        let nivelAntigo = 1;
+        let xpAtual = quantidade;
+        
+        if (userDoc.exists) {
+            nivelAntigo = userDoc.data().nivel || 1;
+            xpAtual = (userDoc.data().xp || 0) + quantidade;
+        }
+        
+        const novoNivel = calcularNivel(xpAtual);
+        
+        await userRef.set({
+            nome: username,
+            xp: xpAtual,
+            nivel: novoNivel,
+            ultimoLogin: new Date()
+        });
+        
+        mostrarLevelUp(novoNivel, nivelAntigo);
+        
+        if (username === usuarioAtual) {
+            await carregarDadosUsuario();
+        }
+    } catch (error) {
+        console.error("Erro ao adicionar XP:", error);
+    }
+}
 
-// Carregar mensagens do Firebase
-function loadMessagesFromFirebase() {
-    db.collection('messages')
+// ============================================
+// CARREGAR DADOS DO USUÁRIO
+// ============================================
+async function carregarDadosUsuario() {
+    if (!usuarioAtual) return;
+    
+    try {
+        const userRef = db.collection('usuarios').doc(usuarioAtual);
+        const userDoc = await userRef.get();
+        
+        if (userDoc.exists) {
+            dadosUsuario = userDoc.data();
+        } else {
+            dadosUsuario = { nome: usuarioAtual, xp: 0, nivel: 1 };
+            await userRef.set(dadosUsuario);
+        }
+        
+        atualizarInterface();
+    } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+    }
+}
+
+// ============================================
+// ENVIAR MENSAGEM
+// ============================================
+async function enviarMensagemFirebase(conteudo) {
+    if (!conteudo.trim() || !usuarioAtual) return;
+    
+    try {
+        await adicionarXP(usuarioAtual, XP_POR_MSG);
+        
+        const userRef = db.collection('usuarios').doc(usuarioAtual);
+        const userDoc = await userRef.get();
+        const nivel = userDoc.exists ? (userDoc.data().nivel || 1) : 1;
+        const titulo = getTituloPorNivel(nivel);
+        
+        await db.collection('mensagens').add({
+            usuario: usuarioAtual,
+            texto: conteudo,
+            nivel: nivel,
+            titulo: titulo,
+            timestamp: new Date(),
+            hora: getHoraAtual()
+        });
+    } catch (error) {
+        console.error("Erro ao enviar mensagem:", error);
+    }
+}
+
+async function enviarMensagemSistema(texto) {
+    try {
+        await db.collection('mensagens').add({
+            usuario: '🎮 SISTEMA',
+            texto: texto,
+            timestamp: new Date(),
+            hora: getHoraAtual(),
+            isSystem: true
+        });
+    } catch (error) {
+        console.error("Erro ao enviar mensagem sistema:", error);
+    }
+}
+
+// ============================================
+// CARREGAR MENSAGENS
+// ============================================
+function carregarMensagens() {
+    db.collection('mensagens')
         .orderBy('timestamp', 'asc')
         .onSnapshot((snapshot) => {
-            messages = [];
-            snapshot.forEach((doc) => {
-                messages.push(doc.data());
-            });
-            renderMessages();
-            updateParticipantCount();
+            if (snapshot.empty) {
+                messagesDiv.innerHTML = `
+                    <div class="welcome-box">
+                        🎮 BEM-VINDO AO CHAT XP! 🎮<br>
+                        💬 Cada mensagem dá +5 XP! 💬<br>
+                        🏆 Nível 20 = Título LENDA! 🏆
+                    </div>
+                `;
+                return;
+            }
             
-            setTimeout(() => {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }, 100);
+            let html = '';
+            snapshot.forEach((doc) => {
+                const msg = doc.data();
+                if (msg.isSystem) {
+                    html += `<div class="system-message">${msg.texto}</div>`;
+                } else {
+                    const isOwn = usuarioAtual === msg.usuario;
+                    const messageClass = isOwn ? 'message-own' : 'message-other';
+                    html += `
+                        <div class="message ${messageClass}">
+                            <div class="message-info">
+                                ${!isOwn ? `<span class="message-name">${msg.usuario}</span>` : ''}
+                                ${msg.nivel ? `<span class="message-level">🏆 Nv.${msg.nivel}</span>` : ''}
+                                ${msg.titulo ? `<span class="message-title">${msg.titulo}</span>` : ''}
+                                <span class="message-time">${msg.hora || 'agora'}</span>
+                            </div>
+                            <div class="message-bubble">
+                                ${msg.texto}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            messagesDiv.innerHTML = html;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }, (error) => {
+            console.error("Erro ao carregar mensagens:", error);
         });
 }
 
-// Enviar mensagem (com XP!)
-async function sendMessageToFirebase(content) {
-    if (!content || !currentUser) return;
-    
-    // Adiciona XP por mensagem
-    await addXP(currentUser, XP_POR_MENSAGEM);
-    
-    // Carrega dados atualizados do usuário
-    const userRef = db.collection('users').doc(currentUser);
-    const userDoc = await userRef.get();
-    const userLevel = userDoc.exists ? (userDoc.data().level || 1) : 1;
-    const userTitleText = getTitleByLevel(userLevel);
-    
-    db.collection('messages').add({
-        username: currentUser,
-        content: content,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        time: getCurrentTime(),
-        level: userLevel,
-        title: userTitleText
-    });
+// ============================================
+// ATUALIZAR ONLINE
+// ============================================
+async function atualizarOnlineCount() {
+    try {
+        const snapshot = await db.collection('usuarios').get();
+        onlineCountSpan.textContent = snapshot.size;
+    } catch (error) {
+        console.error("Erro ao contar online:", error);
+    }
 }
 
-// Adicionar mensagem de sistema
-function addSystemMessage(content) {
-    db.collection('messages').add({
-        username: '🎮 SISTEMA',
-        content: content,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        time: getCurrentTime(),
-        isSystem: true
-    });
-}
-
-// Formatar hora
-function getCurrentTime() {
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+function getHoraAtual() {
     const now = new Date();
     return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Renderizar mensagens
-function renderMessages() {
-    if (!messagesArea) return;
+// ============================================
+// ENTRAR NO CHAT
+// ============================================
+async function entrarNoChat() {
+    const nome = loginInput.value.trim();
     
-    if (messages.length === 0) {
-        messagesArea.innerHTML = `
-            <div class="welcome-message">
-                🎮 BEM-VINDO AO CHAT XP! 🎮<br>
-                💬 Cada mensagem dá +5 XP! 💬<br>
-                🏆 Nível 20 = Título LENDA! 🏆
-            </div>
-        `;
+    if (!nome) {
+        alert('Digite seu nome!');
         return;
     }
     
-    messagesArea.innerHTML = messages.map(msg => {
-        if (msg.isSystem) {
-            return `<div class="system-message">${msg.content}</div>`;
-        }
-        
-        const isOwn = currentUser === msg.username;
-        const messageClass = isOwn ? 'message-own' : 'message-other';
-        const userLevel = msg.level || 1;
-        const userTitle = msg.title || getTitleByLevel(userLevel);
-        
-        return `
-            <div class="message ${messageClass}">
-                <div class="message-info">
-                    ${!isOwn ? `<span class="message-name">${escapeHtml(msg.username)}</span>` : ''}
-                    <span class="message-level">🏆 Nv.${userLevel}</span>
-                    <span class="message-title">${userTitle}</span>
-                    <span class="message-time">${msg.time || 'agora'}</span>
-                </div>
-                <div class="message-bubble">
-                    ${escapeHtml(msg.content)}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Escapar HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Atualizar contador de participantes
-async function updateParticipantCount() {
-    const snapshot = await db.collection('users').get();
-    participantCount.textContent = snapshot.size;
-}
-
-// Entrar no chat
-async function joinChat() {
-    const username = usernameInput.value.trim();
-    
-    if (!username) {
-        alert('Por favor, digite um nome!');
-        return;
-    }
-    
-    if (username.length > 20) {
+    if (nome.length > 20) {
         alert('Nome muito longo! Máximo 20 caracteres.');
         return;
     }
     
-    currentUser = username;
-    localStorage.setItem('chatUsername', currentUser);
+    usuarioAtual = nome;
+    localStorage.setItem('chatUsername', nome);
     
-    await loadUserData();
-    addSystemMessage(`${username} entrou no chat! 🎮`);
+    await carregarDadosUsuario();
+    await enviarMensagemSistema(`${nome} entrou no chat! 🎮`);
     
-    nameContainer.style.display = 'none';
-    messageContainer.style.display = 'block';
+    telaLogin.style.display = 'none';
+    telaChat.style.display = 'flex';
     messageInput.focus();
 }
 
-// Enviar mensagem
-function sendMessage() {
-    const content = messageInput.value.trim();
-    if (!content) return;
-    
-    sendMessageToFirebase(content);
+function enviarMensagem() {
+    const texto = messageInput.value.trim();
+    if (!texto) return;
+    enviarMensagemFirebase(texto);
     messageInput.value = '';
     messageInput.focus();
 }
 
-// Indicador de digitação
-let typingTimeout;
-if (messageInput) {
-    messageInput.addEventListener('input', () => {
-        if (messageInput.value.length > 0 && currentUser) {
-            typingIndicator.textContent = `${currentUser} está digitando...`;
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                typingIndicator.textContent = '';
-            }, 1000);
-        } else {
+// ============================================
+// EVENTOS
+// ============================================
+let timeoutTyping;
+messageInput.addEventListener('input', () => {
+    if (messageInput.value.length > 0 && usuarioAtual) {
+        typingIndicator.textContent = `${usuarioAtual} está digitando...`;
+        clearTimeout(timeoutTyping);
+        timeoutTyping = setTimeout(() => {
             typingIndicator.textContent = '';
-        }
-    });
-}
+        }, 1000);
+    }
+});
 
-// Eventos
-if (sendBtn) sendBtn.addEventListener('click', sendMessage);
-if (setNameBtn) setNameBtn.addEventListener('click', joinChat);
+loginBtn.addEventListener('click', entrarNoChat);
+sendBtn.addEventListener('click', enviarMensagem);
+messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') enviarMensagem();
+});
+loginInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') entrarNoChat();
+});
 
-if (messageInput) {
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
-}
-
-if (usernameInput) {
-    usernameInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') joinChat();
-    });
-}
-
-// Verificar usuário já logado
-if (currentUser) {
-    usernameInput.value = currentUser;
-    joinChat();
+// Verificar usuário salvo
+const usuarioSalvo = localStorage.getItem('chatUsername');
+if (usuarioSalvo) {
+    loginInput.value = usuarioSalvo;
+    entrarNoChat();
 }
 
 // Iniciar
-loadMessagesFromFirebase();
+carregarMensagens();
+setInterval(atualizarOnlineCount, 5000);
