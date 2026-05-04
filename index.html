@@ -3,38 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💬 Meu Chat - Conversa ao Vivo</title>
+    <title>🎮 CHAT XP - Sistema de Níveis</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="chat-container">
-            <!-- Header do Chat -->
+            <!-- Header com Perfil e Nível -->
             <div class="chat-header">
-                <div class="header-info">
-                    <div class="online-dot"></div>
-                    <h2>🤖 Sala de Bate-Papo</h2>
+                <div class="user-profile" id="userProfile">
+                    <div class="avatar" id="userAvatar">👤</div>
+                    <div class="user-stats">
+                        <h3 id="userNameDisplay">Carregando...</h3>
+                        <div class="level-info">
+                            <span class="level-badge" id="userLevel">Nv. 1</span>
+                            <span class="level-title" id="userTitle">⭐ Iniciante</span>
+                        </div>
+                        <div class="xp-bar-container">
+                            <div class="xp-bar" id="userXpBar" style="width: 0%"></div>
+                            <span class="xp-text" id="userXpText">0/100 XP</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="participants">
-                    <span id="participantCount">1</span> online
+                    <span id="participantCount">0</span> online
                 </div>
             </div>
 
             <!-- Área das Mensagens -->
             <div class="messages-area" id="messagesArea">
                 <div class="welcome-message">
-                    ✨ Bem-vindo ao chat! ✨<br>
-                    Digite seu nome e comece a conversar!
+                    🎮 BEM-VINDO AO CHAT XP! 🎮<br>
+                    Digite seu nome e comece a conversar!<br>
+                    💬 Cada mensagem dá +5 XP! 💬
                 </div>
             </div>
 
             <!-- Input de Nome -->
             <div class="name-container" id="nameContainer">
                 <input type="text" id="usernameInput" placeholder="Seu nome..." maxlength="20">
-                <button id="setNameBtn" class="btn-primary">Entrar no Chat</button>
+                <button id="setNameBtn" class="btn-primary">🎮 Entrar no Chat</button>
             </div>
 
-            <!-- Área de Digitação (inicialmente escondida) -->
+            <!-- Área de Digitação -->
             <div class="message-input-container" id="messageContainer" style="display: none;">
                 <div class="typing-indicator" id="typingIndicator"></div>
                 <div class="input-group">
