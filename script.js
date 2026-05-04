@@ -21,12 +21,12 @@ const XP_POR_MSG = 5;
 const XP_POR_NIVEL = 100;
 
 function getTituloPorNivel(nivel) {
-    if (nivel >= 20) return "👑 HACKER SUPREMO 👑";
-    if (nivel >= 15) return "⚡ MESTRE HACKER ⚡";
-    if (nivel >= 10) return "💀 HACKER ÉLITE 💀";
-    if (nivel >= 5) return "🔰 HACKER NINJA 🔰";
-    if (nivel >= 3) return "👤 INVASOR 👤";
-    return "🐣 SCRIPT KIDDIE 🐣";
+    if (nivel >= 20) return "👑 LENDA 👑";
+    if (nivel >= 15) return "⚡ MESTRE ⚡";
+    if (nivel >= 10) return "💎 ÉLITE 💎";
+    if (nivel >= 5) return "🏆 VETERANO 🏆";
+    if (nivel >= 3) return "📈 APRENDIZ 📈";
+    return "⭐ INICIANTE ⭐";
 }
 
 function calcularNivel(xp) { return Math.floor(xp / XP_POR_NIVEL) + 1; }
@@ -34,7 +34,6 @@ function getXpAtual(xp) { return xp % XP_POR_NIVEL; }
 
 let usuarioAtual = null;
 let dadosUsuario = null;
-let usuariosOnline = [];
 
 // Elementos DOM
 const telaLogin = document.getElementById('loginScreen');
@@ -53,20 +52,48 @@ const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const typingIndicator = document.getElementById('typingIndicator');
 
-// ============================================
-// FUNÇÕES AUXILIARES
-// ============================================
 function getHoraAtual() {
     const now = new Date();
     return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 // ============================================
-// COMANDO GUNTO - MENSAGEM NA TELA
+// COMANDO GUNTO - MOSTRA EM TODAS AS TELAS
 // ============================================
+async function executarGunto(mensagem, autor) {
+    const textoGunto = mensagem.substring(6).trim();
+    if (!textoGunto) {
+        enviarMensagemSistema("Uso correto: /gunto [mensagem]");
+        return true;
+    }
+    
+    // Salva no Firestore para aparecer em todas as telas
+    await db.collection('alertas').add({
+        tipo: 'gunto',
+        mensagem: textoGunto,
+        autor: autor,
+        timestamp: new Date()
+    });
+    
+    enviarMensagemSistema(`🔫 ${autor} disparou GUNTO: "${textoGunto}"`);
+    return true;
+}
+
+// Escutar alertas do Firestore (para aparecer em todas as telas)
+db.collection('alertas').onSnapshot((snapshot) => {
+    snapshot.forEach((doc) => {
+        const alerta = doc.data();
+        if (alerta.tipo === 'gunto') {
+            mostrarGuntoAlert(alerta.mensagem, alerta.autor);
+            // Remove após mostrar
+            doc.ref.delete();
+        }
+    });
+});
+
 function mostrarGuntoAlert(mensagem, autor) {
     const alertDiv = document.getElementById('guntoAlert');
-    alertDiv.innerHTML = `🔫 ${autor} DISPAROU!<br>💀 ${mensagem} 💀`;
+    alertDiv.innerHTML = `🔫 ${autor} DISPAROU!<br>💙 ${mensagem} 💙`;
     alertDiv.style.display = 'flex';
     setTimeout(() => {
         alertDiv.style.display = 'none';
@@ -74,37 +101,73 @@ function mostrarGuntoAlert(mensagem, autor) {
 }
 
 // ============================================
+// COMANDO CLS - LIMPAR TODAS MENSAGENS
+// ============================================
+async function executarCls(autor) {
+    try {
+        const snapshot = await db.collection('mensagens').get();
+        const batch = db.batch();
+        snapshot.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        
+        await enviarMensagemSistema(`🗑️ Todas as mensagens foram limpas por ${autor}!`);
+        
+        // Notificação visual
+        const notif = document.createElement('div');
+        notif.className = 'clear-notification';
+        notif.innerHTML = '🗑️ CHAT LIMPO POR ${autor}! 🗑️';
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+        
+    } catch (error) {
+        console.error("Erro ao limpar:", error);
+    }
+}
+
+// ============================================
 // COMANDO KICK - EXPULSAR USUÁRIO
 // ============================================
-async function kickUsuario(alvo, autor) {
-    if (autor === alvo) {
-        enviarMensagemSistema(`${autor} tentou se kickar mas falhou! 🤡`);
-        return;
+async function executarKick(mensagem, autor) {
+    const partes = mensagem.split(' ');
+    const alvo = partes[1]?.replace('@', '');
+    
+    if (!alvo) {
+        enviarMensagemSistema("Uso correto: /kick @usuario");
+        return true;
     }
     
-    // Verifica se o autor tem nível >= 5 para kickar
+    if (autor === alvo) {
+        enviarMensagemSistema(`${autor} tentou se kickar mas falhou! 🤡`);
+        return true;
+    }
+    
+    // Verifica nível do autor
     const autorRef = await db.collection('usuarios').doc(autor).get();
     const autorNivel = autorRef.exists ? (autorRef.data().nivel || 1) : 1;
     
-    if (autorNivel < 5 && autor !== "SISTEMA") {
+    if (autorNivel < 5) {
         enviarMensagemSistema(`${autor} tentou kickar mas precisa ser nível 5+!`);
-        return;
+        return true;
     }
     
-    enviarMensagemSistema(`💀 ${alvo} foi EXPULSO do chat por ${autor}! 💀`);
+    await enviarMensagemSistema(`💀 ${alvo} foi EXPULSO do chat por ${autor}! 💀`);
     
-    // Mostrar notificação para o kickado
-    const kickNotif = document.createElement('div');
-    kickNotif.className = 'kick-notification';
-    kickNotif.innerHTML = `👢 VOCÊ FOI EXPULSO POR ${autor}! 👢`;
-    document.body.appendChild(kickNotif);
-    setTimeout(() => kickNotif.remove(), 3000);
-    
-    // Limpar dados do kickado localmente se for o usuário atual
+    // Notificação para o kickado (se estiver online)
     if (alvo === usuarioAtual) {
-        localStorage.removeItem('chatUsername');
-        setTimeout(() => location.reload(), 2000);
+        const kickNotif = document.createElement('div');
+        kickNotif.className = 'kick-notification';
+        kickNotif.innerHTML = `👢 VOCÊ FOI EXPULSO POR ${autor}! 👢`;
+        document.body.appendChild(kickNotif);
+        setTimeout(() => {
+            kickNotif.remove();
+            localStorage.removeItem('chatUsername');
+            location.reload();
+        }, 2000);
     }
+    
+    return true;
 }
 
 // ============================================
@@ -117,13 +180,14 @@ let tentativasRestantes = 6;
 
 const palavrasForca = [
     "HACKER", "MATRIX", "SISTEMA", "FIREBASE", "TERMINAL",
-    "CODIGO", "SENHA", "CRIPTOGRAFIA", "ALGORITIMO", "PROTOCOLO"
+    "CODIGO", "SENHA", "CRIPTOGRAFIA", "ALGORITIMO", "PROTOCOLO",
+    "SERVIDOR", "CLIENTE", "BANCO", "DADOS", "CLOUD"
 ];
 
-function iniciarForca() {
+async function executarForca() {
     if (jogoAtivo) {
-        enviarMensagemSistema("Já tem um jogo da forca ativo!");
-        return;
+        await enviarMensagemSistema("Já tem um jogo da forca ativo! Finalize ele primeiro.");
+        return true;
     }
     
     jogoAtivo = true;
@@ -132,6 +196,7 @@ function iniciarForca() {
     tentativasRestantes = 6;
     
     mostrarModalForca();
+    return true;
 }
 
 function mostrarModalForca() {
@@ -149,9 +214,12 @@ function mostrarModalForca() {
                 <h2>🪢 JOGO DA FORCA</h2>
                 <div class="hangman-word">${palavraExibida}</div>
                 <div class="hangman-attempts">💀 Tentativas: ${tentativasRestantes} / 6</div>
-                <input type="text" maxlength="1" placeholder="Digite uma letra" class="hangman-input" id="hangmanLetter">
-                <button id="hangmanGuessBtn">ADIVINHAR</button>
-                <button id="hangmanCloseBtn">FECHAR</button>
+                <input type="text" maxlength="1" placeholder="?" class="hangman-input" id="hangmanLetter" autocomplete="off">
+                <div>
+                    <button id="hangmanGuessBtn">ADIVINHAR</button>
+                    <button id="hangmanCloseBtn">FECHAR</button>
+                </div>
+                <div style="margin-top: 15px; font-size: 12px; color: #666;">Letras usadas: ${letrasAdivinhadas.join(', ') || 'nenhuma'}</div>
             </div>
         `;
         
@@ -159,12 +227,12 @@ function mostrarModalForca() {
         const guessBtn = modal.querySelector('#hangmanGuessBtn');
         const closeBtn = modal.querySelector('#hangmanCloseBtn');
         
-        guessBtn.onclick = () => {
+        guessBtn.onclick = async () => {
             const letra = input.value.toUpperCase();
             if (!letra || letra.length !== 1) return;
             
             if (letrasAdivinhadas.includes(letra)) {
-                enviarMensagemSistema(`Letra "${letra}" já foi usada!`);
+                await enviarMensagemSistema(`Letra "${letra}" já foi usada!`);
                 input.value = '';
                 return;
             }
@@ -172,12 +240,12 @@ function mostrarModalForca() {
             letrasAdivinhadas.push(letra);
             
             if (palavraAtual.includes(letra)) {
-                enviarMensagemSistema(`✅ Letra "${letra}" está na palavra!`);
+                await enviarMensagemSistema(`✅ Letra "${letra}" está na palavra!`);
                 
                 const palavraCompleta = palavraAtual.split('').every(l => letrasAdivinhadas.includes(l));
                 if (palavraCompleta) {
-                    enviarMensagemSistema(`🎉 ${usuarioAtual} acertou a palavra "${palavraAtual}" e ganhou +50 XP! 🎉`);
-                    adicionarXP(usuarioAtual, 50);
+                    await enviarMensagemSistema(`🎉 ${usuarioAtual} acertou a palavra "${palavraAtual}" e ganhou +50 XP! 🎉`);
+                    await adicionarXP(usuarioAtual, 50);
                     jogoAtivo = false;
                     modal.remove();
                 } else {
@@ -185,10 +253,10 @@ function mostrarModalForca() {
                 }
             } else {
                 tentativasRestantes--;
-                enviarMensagemSistema(`❌ Letra "${letra}" não está na palavra!`);
+                await enviarMensagemSistema(`❌ Letra "${letra}" não está na palavra!`);
                 
                 if (tentativasRestantes <= 0) {
-                    enviarMensagemSistema(`💀 FIM DE JOGO! A palavra era "${palavraAtual}"! 💀`);
+                    await enviarMensagemSistema(`💀 FIM DE JOGO! A palavra era "${palavraAtual}"! 💀`);
                     jogoAtivo = false;
                     modal.remove();
                 } else {
@@ -196,48 +264,50 @@ function mostrarModalForca() {
                 }
             }
             input.value = '';
+            input.focus();
         };
         
         closeBtn.onclick = () => {
             jogoAtivo = false;
             modal.remove();
         };
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') guessBtn.click();
+        });
     }
     
     atualizarModal();
     document.body.appendChild(modal);
+    setTimeout(() => {
+        const input = document.getElementById('hangmanLetter');
+        if (input) input.focus();
+    }, 100);
 }
 
 // ============================================
 // PROCESSAR COMANDOS
 // ============================================
 async function processarComando(mensagem, usuario) {
-    const cmd = mensagem.trim().toLowerCase();
+    const cmd = mensagem.toLowerCase().trim();
     
-    if (cmd === '/forca') {
-        iniciarForca();
+    if (cmd === '/cls') {
+        await executarCls(usuario);
         return true;
     }
     
     if (cmd.startsWith('/kick')) {
-        const partes = cmd.split(' ');
-        const alvo = partes[1]?.replace('@', '');
-        if (alvo) {
-            await kickUsuario(alvo, usuario);
-        } else {
-            enviarMensagemSistema("Uso correto: /kick @usuario");
-        }
+        await executarKick(mensagem, usuario);
         return true;
     }
     
     if (cmd.startsWith('/gunto')) {
-        const textoGunto = mensagem.substring(6).trim();
-        if (textoGunto) {
-            mostrarGuntoAlert(textoGunto, usuario);
-            enviarMensagemSistema(`🔫 ${usuario} usou GUNTO: "${textoGunto}"`);
-        } else {
-            enviarMensagemSistema("Uso correto: /gunto [mensagem]");
-        }
+        await executarGunto(mensagem, usuario);
+        return true;
+    }
+    
+    if (cmd === '/forca') {
+        await executarForca();
         return true;
     }
     
@@ -283,7 +353,8 @@ function atualizarInterface() {
     xpBarFill.style.width = `${percentual}%`;
     xpTextSpan.textContent = `${xpAtual}/${XP_POR_NIVEL} XP`;
     if (nivel >= 20) userAvatar.textContent = "👑";
-    else if (nivel >= 10) userAvatar.textContent = "💀";
+    else if (nivel >= 10) userAvatar.textContent = "💎";
+    else if (nivel >= 5) userAvatar.textContent = "🏆";
     else userAvatar.textContent = "👤";
 }
 
@@ -311,7 +382,7 @@ async function enviarMensagemFirebase(conteudo) {
 
 async function enviarMensagemSistema(texto) {
     await db.collection('mensagens').add({
-        usuario: '💀 SISTEMA',
+        usuario: '💙 SISTEMA',
         texto: texto,
         timestamp: new Date(),
         hora: getHoraAtual(),
@@ -322,7 +393,7 @@ async function enviarMensagemSistema(texto) {
 function carregarMensagens() {
     db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
         if (snapshot.empty) {
-            messagesDiv.innerHTML = `<div class="welcome-box">💀 CHAT HACKER INICIADO 💀<br>Comandos: /gunto, /kick @user, /forca</div>`;
+            messagesDiv.innerHTML = `<div class="welcome-box">💙 BLUE CHAT INICIADO 💙<br>💬 /gunto [msg] | 👢 /kick @user | 🗑️ /cls | 🪢 /forca</div>`;
             return;
         }
         let html = '';
@@ -362,7 +433,7 @@ async function entrarNoChat() {
     usuarioAtual = nome;
     localStorage.setItem('chatUsername', nome);
     await carregarDadosUsuario();
-    await enviarMensagemSistema(`${nome} invadiu o chat! 🔴`);
+    await enviarMensagemSistema(`${nome} entrou no chat! 💙`);
     telaLogin.style.display = 'none';
     telaChat.style.display = 'flex';
     messageInput.focus();
@@ -376,46 +447,19 @@ function enviarMensagem() {
 }
 
 // ============================================
-// MATRIZ HACKER (CÓDIGO PASSANDO NO FUNDO)
+// EVENTOS
 // ============================================
-function iniciarMatrix() {
-    const canvas = document.getElementById('matrixCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+{}[]|:;<>,.?/~`";
-    const fontSize = 14;
-    const columns = Math.floor(canvas.width / fontSize);
-    const drops = Array(columns).fill(1);
-    
-    function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ff0000';
-        ctx.font = `bold ${fontSize}px 'Courier New'`;
-        
-        for (let i = 0; i < drops.length; i++) {
-            const char = chars[Math.floor(Math.random() * chars.length)];
-            ctx.fillText(char, i * fontSize, drops[i] * fontSize);
-            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
-            drops[i]++;
-        }
+let timeoutTyping;
+messageInput.addEventListener('input', () => {
+    if (messageInput.value.length > 0 && usuarioAtual) {
+        typingIndicator.textContent = `${usuarioAtual} está digitando...`;
+        clearTimeout(timeoutTyping);
+        timeoutTyping = setTimeout(() => {
+            typingIndicator.textContent = '';
+        }, 1000);
     }
-    
-    setInterval(draw, 50);
-}
-
-window.addEventListener('resize', () => {
-    const canvas = document.getElementById('matrixCanvas');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
 });
 
-// ============================================
-// EVENTOS E INICIALIZAÇÃO
-// ============================================
 loginBtn.addEventListener('click', entrarNoChat);
 sendBtn.addEventListener('click', enviarMensagem);
 messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') enviarMensagem(); });
@@ -426,4 +470,3 @@ if (usuarioSalvo) { loginInput.value = usuarioSalvo; entrarNoChat(); }
 
 carregarMensagens();
 setInterval(atualizarOnlineCount, 3000);
-iniciarMatrix();
