@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💙 BLUE CHAT</title>
+    <title>💙 BLUE CHAT - Fotos e Jogos</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 </head>
 <body>
+    <!-- TELA DE LOGIN -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
             <div class="logo-icon">💙</div>
@@ -21,12 +23,14 @@
                 <span>/gunto [msg]</span>
                 <span>/kick @user</span>
                 <span>/cls</span>
-                <span>/forca</span>
                 <span>/gartic</span>
+                <span>/snake</span>
+                <span>📷 Envie fotos!</span>
             </div>
         </div>
     </div>
 
+    <!-- TELA DO CHAT -->
     <div class="chat-main" id="chatMain" style="display: none;">
         <div class="chat-container">
             <div class="chat-header">
@@ -48,17 +52,79 @@
             </div>
 
             <div class="messages-area" id="messagesArea">
-                <div class="welcome-box">💙 BEM-VINDO! Use /gunto [msg]</div>
+                <div class="welcome-box">💙 BEM-VINDO!<br>🎨 /gartic | 🐍 /snake | 📷 Clique na câmera para enviar foto</div>
             </div>
 
             <div class="typing-area">
-                <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-                <button id="sendBtn">ENVIAR</button>
+                <div class="input-wrapper">
+                    <button id="photoBtn" class="photo-btn">📷</button>
+                    <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+                    <button id="sendBtn">ENVIAR</button>
+                </div>
                 <div class="typing-indicator" id="typingIndicator"></div>
             </div>
         </div>
     </div>
 
+    <!-- MODAL DE ENVIO DE FOTO -->
+    <div id="photoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>📷 Enviar Foto</h2>
+            <input type="file" id="photoInput" accept="image/*" capture="environment">
+            <div id="photoPreview" class="photo-preview"></div>
+            <button id="sendPhotoBtn" class="send-photo-btn">📤 ENVIAR FOTO</button>
+        </div>
+    </div>
+
+    <!-- MODAL DO GARTIC -->
+    <div id="garticModal" class="modal">
+        <div class="gartic-container">
+            <div class="gartic-header">
+                <h2>🎨 GARTIC GAME</h2>
+                <button class="close-gartic">&times;</button>
+            </div>
+            <div class="gartic-body">
+                <div class="gartic-word-display" id="garticWordDisplay"></div>
+                <div class="gartic-timer" id="garticTimer">⏱️ 60s</div>
+                <div class="gartic-drawer" id="garticDrawerInfo"></div>
+                <canvas id="garticCanvas" width="500" height="400" class="gartic-canvas"></canvas>
+                <div class="gartic-tools">
+                    <button class="tool-btn" data-color="#000000">⚫</button>
+                    <button class="tool-btn" data-color="#FF0000">🔴</button>
+                    <button class="tool-btn" data-color="#0000FF">🔵</button>
+                    <button class="tool-btn" data-color="#00FF00">🟢</button>
+                    <button class="tool-btn" data-color="#FFFF00">🟡</button>
+                    <button class="tool-btn" data-clear="true">🗑️</button>
+                    <input type="range" id="brushSize" min="1" max="20" value="3">
+                    <span id="brushValue">3px</span>
+                </div>
+                <div class="gartic-guesses">
+                    <input type="text" id="garticGuess" placeholder="Digite seu palpite...">
+                    <button id="garticGuessBtn">PALPITAR</button>
+                    <div id="guessHistory" class="guess-history"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DO JOGO DA COBRA -->
+    <div id="snakeModal" class="modal">
+        <div class="snake-container">
+            <div class="snake-header">
+                <h2>🐍 JOGO DA COBRINHA</h2>
+                <button class="close-snake">&times;</button>
+            </div>
+            <div class="snake-score">Pontuação: <span id="snakeScore">0</span></div>
+            <canvas id="snakeCanvas" width="400" height="400" class="snake-canvas"></canvas>
+            <div class="snake-controls">
+                <p>Use WASD ou SETAS para mover</p>
+                <button id="snakeRestartBtn">🔄 REINICIAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALERTA GUNTO -->
     <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
 
     <script src="script.js"></script>

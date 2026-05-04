@@ -49,7 +49,7 @@ body {
 
 .login-input-group {
     display: flex;
-flex-direction: column;
+    flex-direction: column;
     gap: 15px;
 }
 
@@ -104,7 +104,7 @@ flex-direction: column;
 
 .chat-container {
     width: 100%;
-    max-width: 900px;
+    max-width: 1000px;
     height: 90vh;
     background: #0a0e27;
     border-radius: 20px;
@@ -261,6 +261,14 @@ flex-direction: column;
     border-bottom-left-radius: 5px;
 }
 
+.message-image {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
 .message-info {
     font-size: 11px;
     margin: 0 10px 5px 10px;
@@ -294,9 +302,11 @@ flex-direction: column;
     padding: 15px;
     background: #0a0e27;
     border-top: 1px solid #1a237e;
+}
+
+.input-wrapper {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
 }
 
 .typing-area input {
@@ -322,13 +332,199 @@ flex-direction: column;
     cursor: pointer;
 }
 
-.typing-indicator {
-    width: 100%;
-    font-size: 12px;
-    color: #42a5f5;
-    padding-left: 10px;
+.photo-btn {
+    font-size: 20px;
+    padding: 8px 15px;
+    background: #1a237e;
+    border: 1px solid #42a5f5;
+    border-radius: 10px;
+    cursor: pointer;
 }
 
+.typing-indicator {
+    font-size: 12px;
+    color: #42a5f5;
+    padding: 5px 0 0 5px;
+}
+
+/* MODAL GERAL */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #0a0e27;
+    border-radius: 20px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    border: 1px solid #42a5f5;
+}
+
+.close-modal, .close-gartic, .close-snake {
+    float: right;
+    font-size: 28px;
+    cursor: pointer;
+    color: white;
+}
+
+.photo-preview {
+    margin: 20px 0;
+}
+
+.photo-preview img {
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+.send-photo-btn {
+    padding: 12px 25px;
+    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* GARTIC */
+.gartic-container {
+    background: #0a0e27;
+    border-radius: 20px;
+    padding: 20px;
+    width: 90%;
+    max-width: 600px;
+    border: 1px solid #42a5f5;
+}
+
+.gartic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.gartic-canvas {
+    background: white;
+    border-radius: 10px;
+    cursor: crosshair;
+    width: 100%;
+    height: auto;
+}
+
+.gartic-tools {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.gartic-guesses {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gartic-guesses input {
+    flex: 1;
+    padding: 10px;
+    background: #1a237e;
+    border: 1px solid #42a5f5;
+    border-radius: 8px;
+    color: white;
+}
+
+.gartic-guesses button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+}
+
+.guess-history {
+    width: 100%;
+    margin-top: 10px;
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 12px;
+    color: #90caf9;
+}
+
+/* JOGO DA COBRA */
+.snake-container {
+    background: #0a0e27;
+    border-radius: 20px;
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    border: 1px solid #42a5f5;
+}
+
+.snake-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.snake-score {
+    color: #42a5f5;
+    font-size: 20px;
+    margin: 10px 0;
+}
+
+.snake-canvas {
+    background: #1a237e;
+    border-radius: 10px;
+    width: 100%;
+    height: auto;
+}
+
+.snake-controls {
+    margin-top: 15px;
+}
+
+.snake-controls p {
+    color: #90caf9;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+#snakeRestartBtn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+}
+
+/* GUNTO ALERT */
 .gunto-alert {
     position: fixed;
     top: 50%;
@@ -340,7 +536,7 @@ flex-direction: column;
     border-radius: 20px;
     font-size: 1.5rem;
     font-weight: bold;
-    z-index: 2000;
+    z-index: 3000;
     text-align: center;
     box-shadow: 0 0 50px rgba(66,165,245,0.8);
     animation: guntoAnim 0.3s ease;
@@ -353,7 +549,8 @@ flex-direction: column;
 
 @media (max-width: 600px) {
     .chat-container { height: 95vh; }
-    .message-bubble { max-width: 85%; font-size: 14px; }
-    .gunto-alert { font-size: 1rem; padding: 15px 25px; width: 80%; }
-    .xp-bar { width: 100px; }
+    .message-bubble { max-width: 85%; }
+    .gunto-alert { font-size: 1rem; padding: 15px 25px; width: 80%; text-align: center; }
+    .gartic-container { width: 95%; }
+    .snake-container { width: 95%; }
 }
