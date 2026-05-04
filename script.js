@@ -139,12 +139,93 @@ async function kickUser(mensagem, autor) {
 }
 
 // ============================================
+// ENVIO DE FOTOS
+// ============================================
+if (photoBtn) {
+    photoBtn.onclick = () => {
+        if (photoModal) photoModal.style.display = 'flex';
+        if (photoInput) photoInput.value = '';
+        if (photoPreview) photoPreview.innerHTML = '';
+    };
+}
+
+document.querySelectorAll('.close-modal, .close-gartic, .close-snake').forEach(el => {
+    if (el) {
+        el.onclick = () => {
+            if (photoModal) photoModal.style.display = 'none';
+            if (garticModal) garticModal.style.display = 'none';
+            if (snakeModal) snakeModal.style.display = 'none';
+            if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
+        };
+    }
+});
+
+if (photoInput) {
+    photoInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file && photoPreview) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                photoPreview.innerHTML = `<img src="${event.target.result}" style="max-width:100%; border-radius:10px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+if (sendPhotoBtn) {
+    sendPhotoBtn.onclick = async () => {
+        const file = photoInput.files[0];
+        if (!file) {
+            alert('Selecione uma foto primeiro!');
+            return;
+        }
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione apenas imagens!');
+            return;
+        }
+        
+        sendPhotoBtn.textContent = '📤 ENVIANDO...';
+        sendPhotoBtn.disabled = true;
+        
+        try {
+            const nomeArquivo = `fotos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const storageRef = storage.ref(nomeArquivo);
+            await storageRef.put(file);
+            const url = await storageRef.getDownloadURL();
+            
+            await db.collection('mensagens').add({
+                usuario: usuarioAtual,
+                tipo: 'imagem',
+                imagemUrl: url,
+                timestamp: new Date(),
+                hora: getHora()
+            });
+            
+            await adicionarXP(usuarioAtual, 5);
+            if (photoModal) photoModal.style.display = 'none';
+            if (photoInput) photoInput.value = '';
+            if (photoPreview) photoPreview.innerHTML = '';
+            await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
+            
+        } catch (error) {
+            console.error("Erro ao enviar foto:", error);
+            alert('Erro ao enviar foto: ' + error.message);
+        } finally {
+            sendPhotoBtn.textContent = '📤 ENVIAR FOTO';
+            sendPhotoBtn.disabled = false;
+        }
+    };
+}
+
+// ============================================
 // JOGO DA COBRA
 // ============================================
 function iniciarSnake() {
     if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
     
     snakeGame.canvas = document.getElementById('snakeCanvas');
+    if (!snakeGame.canvas) return;
     snakeGame.ctx = snakeGame.canvas.getContext('2d');
     snakeGame.canvas.width = 400;
     snakeGame.canvas.height = 400;
@@ -153,18 +234,18 @@ function iniciarSnake() {
     snakeGame.direction = 'RIGHT';
     snakeGame.score = 0;
     snakeGame.gameRunning = true;
-    document.getElementById('snakeScore').innerText = '0';
+    const scoreSpan = document.getElementById('snakeScore');
+    if (scoreSpan) scoreSpan.innerText = '0';
     
     gerarComida();
     desenharSnake();
     
-    if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
     snakeGame.gameLoop = setInterval(atualizarSnake, 100);
-    
-    snakeModal.style.display = 'flex';
+    if (snakeModal) snakeModal.style.display = 'flex';
 }
 
 function gerarComida() {
+    if (!snakeGame.canvas) return;
     const maxX = Math.floor(snakeGame.canvas.width / 20) - 1;
     const maxY = Math.floor(snakeGame.canvas.height / 20) - 1;
     let novaComida;
@@ -175,21 +256,20 @@ function gerarComida() {
 }
 
 function desenharSnake() {
+    if (!snakeGame.ctx || !snakeGame.canvas) return;
     const ctx = snakeGame.ctx;
     const canvas = snakeGame.canvas;
     ctx.fillStyle = '#1a237e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Desenhar comida
     ctx.fillStyle = '#ff0000';
     ctx.fillRect(snakeGame.food.x * 20, snakeGame.food.y * 20, 18, 18);
     
-    // Desenhar cobra
     snakeGame.snake.forEach((segment, index) => {
         ctx.fillStyle = index === 0 ? '#42a5f5' : '#1565c0';
         ctx.fillRect(segment.x * 20, segment.y * 20, 18, 18);
-        ctx.fillStyle = 'white';
         if (index === 0) {
+            ctx.fillStyle = 'white';
             ctx.fillRect(segment.x * 20 + 5, segment.y * 20 + 5, 4, 4);
             ctx.fillRect(segment.x * 20 + 11, segment.y * 20 + 5, 4, 4);
         }
@@ -224,7 +304,8 @@ function atualizarSnake() {
     
     if (newHead.x === snakeGame.food.x && newHead.y === snakeGame.food.y) {
         snakeGame.score += 10;
-        document.getElementById('snakeScore').innerText = snakeGame.score;
+        const scoreSpan = document.getElementById('snakeScore');
+        if (scoreSpan) scoreSpan.innerText = snakeGame.score;
         gerarComida();
     } else {
         snakeGame.snake.pop();
@@ -237,14 +318,15 @@ function gameOverSnake() {
     snakeGame.gameRunning = false;
     if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
     enviarMsgSistema(`🐍 ${usuarioAtual} fez ${snakeGame.score} pontos no Jogo da Cobrinha!`);
-    const ctx = snakeGame.ctx;
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, snakeGame.canvas.width, snakeGame.canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '20px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', 200, 200);
-    ctx.fillText(`Pontos: ${snakeGame.score}`, 200, 240);
+    if (snakeGame.ctx) {
+        snakeGame.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        snakeGame.ctx.fillRect(0, 0, snakeGame.canvas.width, snakeGame.canvas.height);
+        snakeGame.ctx.fillStyle = 'white';
+        snakeGame.ctx.font = '20px Arial';
+        snakeGame.ctx.textAlign = 'center';
+        snakeGame.ctx.fillText('GAME OVER', 200, 200);
+        snakeGame.ctx.fillText(`Pontos: ${snakeGame.score}`, 200, 240);
+    }
 }
 
 function handleSnakeKey(e) {
@@ -256,7 +338,7 @@ function handleSnakeKey(e) {
 }
 
 // ============================================
-// GARTIC
+// GARTIC SINCRONIZADO EM TEMPO REAL
 // ============================================
 const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "FLOR", "ARVORE", "PRAIA", "MONTANHA"];
 
@@ -271,6 +353,9 @@ async function iniciarGartic() {
     desenhistaAtual = usuarioAtual;
     tempoRestante = 60;
     
+    // Limpar desenhos anteriores
+    await db.collection('garticTraco').doc('sessao').delete().catch(() => {});
+    
     await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
     abrirModalGartic();
     iniciarTimerGartic();
@@ -279,6 +364,7 @@ async function iniciarGartic() {
 
 function abrirModalGartic() {
     const canvas = document.getElementById('garticCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     canvas.width = 500;
     canvas.height = 400;
@@ -286,32 +372,76 @@ function abrirModalGartic() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = corAtual;
     ctx.lineWidth = tamanhoPincel;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     
     const wordDisplay = document.getElementById('garticWordDisplay');
     const drawerInfo = document.getElementById('garticDrawerInfo');
     
     if (usuarioAtual === desenhistaAtual) {
-        wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
-        drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
-        habilitarDesenho(true);
+        if (wordDisplay) wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
+        if (drawerInfo) drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
     } else {
-        wordDisplay.innerHTML = "❓ Adivinhe o desenho! ❓";
-        drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
-        habilitarDesenho(false);
+        if (wordDisplay) wordDisplay.innerHTML = "❓ Adivinhe o desenho! ❓";
+        if (drawerInfo) drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
     }
     
-    document.getElementById('guessHistory').innerHTML = '';
-    garticModal.style.display = 'flex';
-    configurarCanvas();
+    const historyDiv = document.getElementById('guessHistory');
+    if (historyDiv) historyDiv.innerHTML = '';
+    if (garticModal) garticModal.style.display = 'flex';
+    
+    // Carregar traços anteriores
+    carregarTraços();
+    configurarCanvasGartic();
 }
 
-function habilitarDesenho(enable) {
-    const canvas = document.getElementById('garticCanvas');
-    canvas.style.cursor = enable ? 'crosshair' : 'not-allowed';
+// SALVAR TRAÇO NO FIREBASE
+async function salvarTraco(x1, y1, x2, y2, cor, tamanho) {
+    if (usuarioAtual !== desenhistaAtual) return;
+    
+    await db.collection('garticTraco').add({
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        cor: cor,
+        tamanho: tamanho,
+        timestamp: new Date(),
+        sessao: 'sessao'
+    });
 }
 
-function configurarCanvas() {
+// CARREGAR TRAÇOS DO FIREBASE
+function carregarTraços() {
+    db.collection('garticTraco')
+        .where('sessao', '==', 'sessao')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot((snapshot) => {
+            const canvas = document.getElementById('garticCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Se for o desenhista, não redesenha tudo (ele já desenha em tempo real)
+            if (usuarioAtual === desenhistaAtual) return;
+            
+            // Redesenhar todos os traços
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            snapshot.forEach((doc) => {
+                const traco = doc.data();
+                ctx.beginPath();
+                ctx.strokeStyle = traco.cor;
+                ctx.lineWidth = traco.tamanho;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.moveTo(traco.x1, traco.y1);
+                ctx.lineTo(traco.x2, traco.y2);
+                ctx.stroke();
+            });
+        });
+}
+
+function configurarCanvasGartic() {
     const canvas = document.getElementById('garticCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
     function getCoords(e) {
@@ -329,7 +459,7 @@ function configurarCanvas() {
         return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
     }
     
-    function start(e) {
+    function startDrawing(e) {
         if (usuarioAtual !== desenhistaAtual) return;
         e.preventDefault();
         desenhando = true;
@@ -346,32 +476,38 @@ function configurarCanvas() {
         if (!desenhando || usuarioAtual !== desenhistaAtual) return;
         e.preventDefault();
         const { x, y } = getCoords(e);
+        
+        // Desenhar localmente
         ctx.beginPath();
         ctx.moveTo(ultimaX, ultimaY);
         ctx.lineTo(x, y);
         ctx.stroke();
+        
+        // Salvar traço no Firebase para outros verem
+        salvarTraco(ultimaX, ultimaY, x, y, corAtual, tamanhoPincel);
+        
         ultimaX = x;
         ultimaY = y;
-        
-        const imgData = canvas.toDataURL();
-        db.collection('garticDesenho').doc('atual').set({ imagem: imgData, timestamp: new Date() });
     }
     
-    function stop(e) { desenhando = false; e.preventDefault(); }
+    function stopDrawing(e) {
+        desenhando = false;
+        e.preventDefault();
+    }
     
-    canvas.removeEventListener('mousedown', start);
+    canvas.removeEventListener('mousedown', startDrawing);
     canvas.removeEventListener('mousemove', draw);
-    canvas.removeEventListener('mouseup', stop);
-    canvas.removeEventListener('touchstart', start);
+    canvas.removeEventListener('mouseup', stopDrawing);
+    canvas.removeEventListener('touchstart', startDrawing);
     canvas.removeEventListener('touchmove', draw);
-    canvas.removeEventListener('touchend', stop);
+    canvas.removeEventListener('touchend', stopDrawing);
     
-    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stop);
-    canvas.addEventListener('touchstart', start);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('touchstart', startDrawing);
     canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', stop);
+    canvas.addEventListener('touchend', stopDrawing);
 }
 
 function iniciarTimerGartic() {
@@ -405,75 +541,23 @@ async function palpiteGartic(palpite) {
     } else {
         await enviarMsgSistema(`❌ ${usuarioAtual} palpitou: "${palpite}" - ERRADO!`);
         const history = document.getElementById('guessHistory');
-        const item = document.createElement('div');
-        item.innerHTML = `<span style="color:#42a5f5">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
-        history.appendChild(item);
+        if (history) {
+            const item = document.createElement('div');
+            item.innerHTML = `<span style="color:#42a5f5">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
+            history.appendChild(item);
+        }
     }
 }
 
 function fecharGartic() {
     garticAtivo = false;
     if (timerInterval) clearInterval(timerInterval);
-    garticModal.style.display = 'none';
-}
-
-db.collection('garticDesenho').doc('atual').onSnapshot((doc) => {
-    if (doc.exists && garticAtivo && usuarioAtual !== desenhistaAtual) {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.getElementById('garticCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-        };
-        img.src = doc.data().imagem;
-    }
-});
-
-// ============================================
-// ENVIO DE FOTOS
-// ============================================
-photoBtn.onclick = () => { photoModal.style.display = 'flex'; };
-document.querySelectorAll('.close-modal, .close-gartic, .close-snake').forEach(el => {
-    el.onclick = () => {
-        photoModal.style.display = 'none';
-        garticModal.style.display = 'none';
-        snakeModal.style.display = 'none';
-        if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
-    };
-});
-
-photoInput.onchange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            photoPreview.innerHTML = `<img src="${event.target.result}" style="max-width:100%; border-radius:10px;">`;
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-sendPhotoBtn.onclick = async () => {
-    const file = photoInput.files[0];
-    if (!file) return;
-    
-    const storageRef = storage.ref(`fotos/${Date.now()}_${file.name}`);
-    await storageRef.put(file);
-    const url = await storageRef.getDownloadURL();
-    
-    await db.collection('mensagens').add({
-        usuario: usuarioAtual,
-        tipo: 'imagem',
-        imagemUrl: url,
-        timestamp: new Date(),
-        hora: getHora()
+    if (garticModal) garticModal.style.display = 'none';
+    // Limpar traços da sessão
+    db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
+        snap.forEach(doc => doc.ref.delete());
     });
-    
-    photoModal.style.display = 'none';
-    photoInput.value = '';
-    photoPreview.innerHTML = '';
-    await adicionarXP(usuarioAtual, XP_POR_MSG);
-};
+}
 
 // ============================================
 // SISTEMA DE MENSAGENS
@@ -497,17 +581,19 @@ async function carregarUsuario() {
     dadosUsuario = doc.exists ? doc.data() : { nome: usuarioAtual, xp: 0, nivel: 1 };
     if (!doc.exists) await ref.set(dadosUsuario);
     
-    userNameSpan.textContent = usuarioAtual;
+    if (userNameSpan) userNameSpan.textContent = usuarioAtual;
     const nivel = dadosUsuario.nivel || 1;
-    userLevelSpan.textContent = `Nv.${nivel}`;
-    userTitleSpan.textContent = getTitulo(nivel);
+    if (userLevelSpan) userLevelSpan.textContent = `Nv.${nivel}`;
+    if (userTitleSpan) userTitleSpan.textContent = getTitulo(nivel);
     const xpAtual = (dadosUsuario.xp || 0) % 100;
     const percentual = (xpAtual / 100) * 100;
-    xpBarFill.style.width = `${percentual}%`;
-    xpTextSpan.textContent = `${xpAtual}/100 XP`;
-    if (nivel >= 20) userAvatar.textContent = "👑";
-    else if (nivel >= 10) userAvatar.textContent = "💎";
-    else userAvatar.textContent = "👤";
+    if (xpBarFill) xpBarFill.style.width = `${percentual}%`;
+    if (xpTextSpan) xpTextSpan.textContent = `${xpAtual}/100 XP`;
+    if (userAvatar) {
+        if (nivel >= 20) userAvatar.textContent = "👑";
+        else if (nivel >= 10) userAvatar.textContent = "💎";
+        else userAvatar.textContent = "👤";
+    }
 }
 
 async function enviarMensagem(texto) {
@@ -531,8 +617,9 @@ async function enviarMensagem(texto) {
 
 function carregarMensagens() {
     db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snap) => {
+        if (!messagesDiv) return;
         if (snap.empty) {
-            messagesDiv.innerHTML = '<div class="welcome-box">💙 BLUE CHAT<br>🎨 /gartic | 🐍 /snake | 📷 Envie fotos!</div>';
+            messagesDiv.innerHTML = '<div class="welcome-box">💙 BLUE CHAT<br>🎨 /gartic | 🐍 /snake | 📷 clique na câmera para enviar fotos!</div>';
             return;
         }
         let html = '';
@@ -550,7 +637,7 @@ function carregarMensagens() {
                             <span class="message-time">${msg.hora}</span>
                         </div>
                         <div class="message-bubble">
-                            <img src="${msg.imagemUrl}" class="message-image" onclick="window.open('${msg.imagemUrl}')">
+                            <img src="${msg.imagemUrl}" class="message-image" onclick="window.open('${msg.imagemUrl}')" style="max-width:200px; max-height:150px; border-radius:10px; cursor:pointer;">
                         </div>
                     </div>
                 `;
@@ -580,84 +667,110 @@ async function entrarChat() {
     localStorage.setItem('chatUsername', nome);
     await carregarUsuario();
     await enviarMsgSistema(`${nome} entrou no chat 💙`);
-    telaLogin.style.display = 'none';
-    telaChat.style.display = 'flex';
-    messageInput.focus();
+    if (telaLogin) telaLogin.style.display = 'none';
+    if (telaChat) telaChat.style.display = 'flex';
+    if (messageInput) messageInput.focus();
 }
 
 // EVENTOS
-loginBtn.onclick = entrarChat;
-sendBtn.onclick = () => { enviarMensagem(messageInput.value); messageInput.value = ''; };
-messageInput.onkeypress = (e) => { if (e.key === 'Enter') { enviarMensagem(messageInput.value); messageInput.value = ''; } };
-loginInput.onkeypress = (e) => { if (e.key === 'Enter') entrarChat(); };
+if (loginBtn) loginBtn.onclick = entrarChat;
+if (sendBtn) {
+    sendBtn.onclick = () => { enviarMensagem(messageInput.value); if (messageInput) messageInput.value = ''; };
+}
+if (messageInput) {
+    messageInput.onkeypress = (e) => { if (e.key === 'Enter') { enviarMensagem(messageInput.value); messageInput.value = ''; } };
+}
+if (loginInput) {
+    loginInput.onkeypress = (e) => { if (e.key === 'Enter') entrarChat(); };
+}
 
 let typingTime;
-messageInput.oninput = () => {
-    if (messageInput.value.length > 0 && usuarioAtual) {
-        typingIndicator.textContent = `${usuarioAtual} digitando...`;
-        clearTimeout(typingTime);
-        typingTime = setTimeout(() => typingIndicator.textContent = '', 1000);
-    }
-};
+if (messageInput) {
+    messageInput.oninput = () => {
+        if (messageInput.value.length > 0 && usuarioAtual && typingIndicator) {
+            typingIndicator.textContent = `${usuarioAtual} digitando...`;
+            clearTimeout(typingTime);
+            typingTime = setTimeout(() => { if (typingIndicator) typingIndicator.textContent = ''; }, 1000);
+        }
+    };
+}
 
 // Configurar ferramentas do Gartic
 document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.onclick = () => {
         if (btn.dataset.clear) {
             const canvas = document.getElementById('garticCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            if (usuarioAtual === desenhistaAtual) {
-                const imgData = canvas.toDataURL();
-                db.collection('garticDesenho').doc('atual').set({ imagem: imgData, timestamp: new Date() });
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Limpar traços do Firebase
+                db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
+                    snap.forEach(doc => doc.ref.delete());
+                });
             }
         } else if (btn.dataset.color) {
             corAtual = btn.dataset.color;
             const canvas = document.getElementById('garticCanvas');
-            const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = corAtual;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.strokeStyle = corAtual;
+            }
         }
     };
 });
 
-const brushSize = document.getElementById('brushSize');
-if (brushSize) {
-    brushSize.oninput = (e) => {
+const brushSizeEl = document.getElementById('brushSize');
+if (brushSizeEl) {
+    brushSizeEl.oninput = (e) => {
         tamanhoPincel = parseInt(e.target.value);
         const canvas = document.getElementById('garticCanvas');
-        const ctx = canvas.getContext('2d');
-        ctx.lineWidth = tamanhoPincel;
-        document.getElementById('brushValue').innerText = tamanhoPincel + 'px';
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = tamanhoPincel;
+        }
+        const brushValue = document.getElementById('brushValue');
+        if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
     };
 }
 
-document.getElementById('garticGuessBtn')?.addEventListener('click', () => {
-    const input = document.getElementById('garticGuess');
-    palpiteGartic(input.value);
-    input.value = '';
-});
+const garticGuessBtn = document.getElementById('garticGuessBtn');
+if (garticGuessBtn) {
+    garticGuessBtn.addEventListener('click', () => {
+        const input = document.getElementById('garticGuess');
+        if (input) {
+            palpiteGartic(input.value);
+            input.value = '';
+        }
+    });
+}
 
-document.getElementById('garticGuess')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        palpiteGartic(e.target.value);
-        e.target.value = '';
-    }
-});
+const garticGuess = document.getElementById('garticGuess');
+if (garticGuess) {
+    garticGuess.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            palpiteGartic(e.target.value);
+            e.target.value = '';
+        }
+    });
+}
 
-document.getElementById('snakeRestartBtn')?.addEventListener('click', () => {
-    if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
-    iniciarSnake();
-});
+const snakeRestartBtn = document.getElementById('snakeRestartBtn');
+if (snakeRestartBtn) {
+    snakeRestartBtn.addEventListener('click', () => {
+        if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
+        iniciarSnake();
+    });
+}
 
 window.addEventListener('keydown', (e) => {
-    if (snakeModal.style.display === 'flex') handleSnakeKey(e);
+    if (snakeModal && snakeModal.style.display === 'flex') handleSnakeKey(e);
 });
 
 // INICIAR
 const salvo = localStorage.getItem('chatUsername');
 if (salvo && loginInput) { loginInput.value = salvo; entrarChat(); }
 carregarMensagens();
-setInterval(async () => { const snap = await db.collection('usuarios').get(); onlineCountSpan.textContent = snap.size; }, 5000);
+setInterval(async () => { const snap = await db.collection('usuarios').get(); if (onlineCountSpan) onlineCountSpan.textContent = snap.size; }, 5000);
 
-console.log("✅ CHAT PRONTO! Comandos: /gunto, /kick, /cls, /gartic, /snake | 📷 Envie fotos!");
+console.log("✅ CHAT PRONTO! Gartic sincronizado! Comandos: /gunto, /kick, /cls, /gartic, /snake | 📷 Envie fotos!");
