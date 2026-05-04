@@ -5,12 +5,14 @@ const firebaseConfig = {
     projectId: "chat-79da1",
     storageBucket: "chat-79da1.firebasestorage.app",
     messagingSenderId: "832541118241",
-    appId: "1:832541118241:web:5d3c8e2650877106b13860"
+    appId: "1:832541118241:web:5d3c8e2650877106b13860",
+    databaseURL: "https://chat-79da1-default-rtdb.firebaseio.com/" // ADICIONE ISSO!
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
+const rtdb = firebase.database(); // Realtime Database para o desenho
 
 // VARIÁVEIS
 let usuarioAtual = null;
@@ -27,6 +29,9 @@ let desenhando = false;
 let ultimaX = 0, ultimaY = 0;
 let corAtual = "#000000";
 let tamanhoPincel = 3;
+let canvasCtx = null;
+let canvasElement = null;
+let sessaoGartic = null;
 
 // VARIÁVEIS DA COBRA
 let snakeGame = {
@@ -230,7 +235,7 @@ function iniciarSnake() {
     snakeGame.canvas.width = 400;
     snakeGame.canvas.height = 400;
     
-    snakeGame.snake = [{x: 10, y: 10}];
+    snakeGame.snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
     snakeGame.direction = 'RIGHT';
     snakeGame.score = 0;
     snakeGame.gameRunning = true;
@@ -338,7 +343,7 @@ function handleSnakeKey(e) {
 }
 
 // ============================================
-// GARTIC SINCRONIZADO EM TEMPO REAL
+// GARTIC COM REALTIME DATABASE (FUNCIONA!)
 // ============================================
 const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "FLOR", "ARVORE", "PRAIA", "MONTANHA"];
 
@@ -352,9 +357,10 @@ async function iniciarGartic() {
     palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
     desenhistaAtual = usuarioAtual;
     tempoRestante = 60;
+    sessaoGartic = Date.now().toString();
     
     // Limpar desenhos anteriores
-    await db.collection('garticTraco').doc('sessao').delete().catch(() => {});
+    await rtdb.ref('gartic/' + sessaoGartic).remove();
     
     await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
     abrirModalGartic();
@@ -363,17 +369,17 @@ async function iniciarGartic() {
 }
 
 function abrirModalGartic() {
-    const canvas = document.getElementById('garticCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    canvas.width = 500;
-    canvas.height = 400;
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = corAtual;
-    ctx.lineWidth = tamanhoPincel;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    canvasElement = document.getElementById('garticCanvas');
+    if (!canvasElement) return;
+    canvasCtx = canvasElement.getContext('2d');
+    canvasElement.width = 500;
+    canvasElement.height = 400;
+    canvasCtx.fillStyle = 'white';
+    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.strokeStyle = corAtual;
+    canvasCtx.lineWidth = tamanhoPincel;
+    canvasCtx.lineCap = 'round';
+    canvasCtx.lineJoin = 'round';
     
     const wordDisplay = document.getElementById('garticWordDisplay');
     const drawerInfo = document.getElementById('garticDrawerInfo');
@@ -381,73 +387,41 @@ function abrirModalGartic() {
     if (usuarioAtual === desenhistaAtual) {
         if (wordDisplay) wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
         if (drawerInfo) drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
+        configurarDesenho();
     } else {
         if (wordDisplay) wordDisplay.innerHTML = "❓ Adivinhe o desenho! ❓";
         if (drawerInfo) drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
+        escutarDesenho();
     }
     
     const historyDiv = document.getElementById('guessHistory');
     if (historyDiv) historyDiv.innerHTML = '';
     if (garticModal) garticModal.style.display = 'flex';
-    
-    // Carregar traços anteriores
-    carregarTraços();
-    configurarCanvasGartic();
 }
 
-// SALVAR TRAÇO NO FIREBASE
-async function salvarTraco(x1, y1, x2, y2, cor, tamanho) {
-    if (usuarioAtual !== desenhistaAtual) return;
-    
-    await db.collection('garticTraco').add({
-        x1: x1, y1: y1, x2: x2, y2: y2,
-        cor: cor,
-        tamanho: tamanho,
-        timestamp: new Date(),
-        sessao: 'sessao'
+function escutarDesenho() {
+    const desenhoRef = rtdb.ref('gartic/' + sessaoGartic);
+    desenhoRef.on('child_added', (snapshot) => {
+        if (usuarioAtual === desenhistaAtual) return;
+        const traco = snapshot.val();
+        if (canvasCtx && canvasElement) {
+            canvasCtx.beginPath();
+            canvasCtx.strokeStyle = traco.cor;
+            canvasCtx.lineWidth = traco.tamanho;
+            canvasCtx.moveTo(traco.x1, traco.y1);
+            canvasCtx.lineTo(traco.x2, traco.y2);
+            canvasCtx.stroke();
+        }
     });
 }
 
-// CARREGAR TRAÇOS DO FIREBASE
-function carregarTraços() {
-    db.collection('garticTraco')
-        .where('sessao', '==', 'sessao')
-        .orderBy('timestamp', 'asc')
-        .onSnapshot((snapshot) => {
-            const canvas = document.getElementById('garticCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            
-            // Se for o desenhista, não redesenha tudo (ele já desenha em tempo real)
-            if (usuarioAtual === desenhistaAtual) return;
-            
-            // Redesenhar todos os traços
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            snapshot.forEach((doc) => {
-                const traco = doc.data();
-                ctx.beginPath();
-                ctx.strokeStyle = traco.cor;
-                ctx.lineWidth = traco.tamanho;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.moveTo(traco.x1, traco.y1);
-                ctx.lineTo(traco.x2, traco.y2);
-                ctx.stroke();
-            });
-        });
-}
-
-function configurarCanvasGartic() {
-    const canvas = document.getElementById('garticCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+function configurarDesenho() {
+    if (!canvasElement) return;
     
     function getCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        const rect = canvasElement.getBoundingClientRect();
+        const scaleX = canvasElement.width / rect.width;
+        const scaleY = canvasElement.height / rect.height;
         let x, y;
         if (e.touches) {
             x = (e.touches[0].clientX - rect.left) * scaleX;
@@ -456,7 +430,7 @@ function configurarCanvasGartic() {
             x = (e.clientX - rect.left) * scaleX;
             y = (e.clientY - rect.top) * scaleY;
         }
-        return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
+        return { x: Math.max(0, Math.min(canvasElement.width, x)), y: Math.max(0, Math.min(canvasElement.height, y)) };
     }
     
     function startDrawing(e) {
@@ -466,10 +440,10 @@ function configurarCanvasGartic() {
         const { x, y } = getCoords(e);
         ultimaX = x;
         ultimaY = y;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(x, y);
+        canvasCtx.lineTo(x, y);
+        canvasCtx.stroke();
     }
     
     function draw(e) {
@@ -477,14 +451,20 @@ function configurarCanvasGartic() {
         e.preventDefault();
         const { x, y } = getCoords(e);
         
-        // Desenhar localmente
-        ctx.beginPath();
-        ctx.moveTo(ultimaX, ultimaY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(ultimaX, ultimaY);
+        canvasCtx.lineTo(x, y);
+        canvasCtx.stroke();
         
-        // Salvar traço no Firebase para outros verem
-        salvarTraco(ultimaX, ultimaY, x, y, corAtual, tamanhoPincel);
+        // Salvar no Realtime Database
+        const traco = {
+            x1: ultimaX, y1: ultimaY,
+            x2: x, y2: y,
+            cor: corAtual,
+            tamanho: tamanhoPincel,
+            timestamp: Date.now()
+        };
+        rtdb.ref('gartic/' + sessaoGartic).push(traco);
         
         ultimaX = x;
         ultimaY = y;
@@ -495,19 +475,19 @@ function configurarCanvasGartic() {
         e.preventDefault();
     }
     
-    canvas.removeEventListener('mousedown', startDrawing);
-    canvas.removeEventListener('mousemove', draw);
-    canvas.removeEventListener('mouseup', stopDrawing);
-    canvas.removeEventListener('touchstart', startDrawing);
-    canvas.removeEventListener('touchmove', draw);
-    canvas.removeEventListener('touchend', stopDrawing);
+    canvasElement.removeEventListener('mousedown', startDrawing);
+    canvasElement.removeEventListener('mousemove', draw);
+    canvasElement.removeEventListener('mouseup', stopDrawing);
+    canvasElement.removeEventListener('touchstart', startDrawing);
+    canvasElement.removeEventListener('touchmove', draw);
+    canvasElement.removeEventListener('touchend', stopDrawing);
     
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('touchstart', startDrawing);
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', stopDrawing);
+    canvasElement.addEventListener('mousedown', startDrawing);
+    canvasElement.addEventListener('mousemove', draw);
+    canvasElement.addEventListener('mouseup', stopDrawing);
+    canvasElement.addEventListener('touchstart', startDrawing);
+    canvasElement.addEventListener('touchmove', draw);
+    canvasElement.addEventListener('touchend', stopDrawing);
 }
 
 function iniciarTimerGartic() {
@@ -553,10 +533,10 @@ function fecharGartic() {
     garticAtivo = false;
     if (timerInterval) clearInterval(timerInterval);
     if (garticModal) garticModal.style.display = 'none';
-    // Limpar traços da sessão
-    db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
-        snap.forEach(doc => doc.ref.delete());
-    });
+    if (sessaoGartic) {
+        rtdb.ref('gartic/' + sessaoGartic).remove();
+    }
+    sessaoGartic = null;
 }
 
 // ============================================
@@ -699,23 +679,16 @@ if (messageInput) {
 document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.onclick = () => {
         if (btn.dataset.clear) {
-            const canvas = document.getElementById('garticCanvas');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                // Limpar traços do Firebase
-                db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
-                    snap.forEach(doc => doc.ref.delete());
-                });
+            if (canvasElement && canvasCtx) {
+                canvasCtx.fillStyle = 'white';
+                canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+                if (sessaoGartic) {
+                    rtdb.ref('gartic/' + sessaoGartic).remove();
+                }
             }
         } else if (btn.dataset.color) {
             corAtual = btn.dataset.color;
-            const canvas = document.getElementById('garticCanvas');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.strokeStyle = corAtual;
-            }
+            if (canvasCtx) canvasCtx.strokeStyle = corAtual;
         }
     };
 });
@@ -724,11 +697,7 @@ const brushSizeEl = document.getElementById('brushSize');
 if (brushSizeEl) {
     brushSizeEl.oninput = (e) => {
         tamanhoPincel = parseInt(e.target.value);
-        const canvas = document.getElementById('garticCanvas');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.lineWidth = tamanhoPincel;
-        }
+        if (canvasCtx) canvasCtx.lineWidth = tamanhoPincel;
         const brushValue = document.getElementById('brushValue');
         if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
     };
@@ -773,4 +742,4 @@ if (salvo && loginInput) { loginInput.value = salvo; entrarChat(); }
 carregarMensagens();
 setInterval(async () => { const snap = await db.collection('usuarios').get(); if (onlineCountSpan) onlineCountSpan.textContent = snap.size; }, 5000);
 
-console.log("✅ CHAT PRONTO! Gartic sincronizado! Comandos: /gunto, /kick, /cls, /gartic, /snake | 📷 Envie fotos!");
+console.log("✅ CHAT PRONTO! Gartic sincronizado com Realtime Database!");
