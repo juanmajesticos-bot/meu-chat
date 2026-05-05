@@ -65,12 +65,9 @@ const telaLogin = document.getElementById('loginScreen');
 const telaChat = document.getElementById('chatMain');
 const loginBtn = document.getElementById('loginBtn');
 const loginInput = document.getElementById('loginUsername');
-const userNameSpan = document.getElementById('userName');
-const userLevelSpan = document.getElementById('userLevel');
-const userTitleSpan = document.getElementById('userTitle');
-const xpBarFill = document.getElementById('xpBarFill');
-const xpTextSpan = document.getElementById('xpText');
-const userAvatar = document.getElementById('userAvatar');
+const userNameSpan = document.getElementById('sidebarName');
+const userLevelSpan = document.getElementById('sidebarLevel');
+const userAvatar = document.getElementById('sidebarAvatar');
 const onlineCountSpan = document.getElementById('onlineCount');
 const messagesDiv = document.getElementById('messagesArea');
 const messageInput = document.getElementById('messageInput');
@@ -81,8 +78,13 @@ const photoModal = document.getElementById('photoModal');
 const photoInput = document.getElementById('photoInput');
 const photoPreview = document.getElementById('photoPreview');
 const sendPhotoBtn = document.getElementById('sendPhotoBtn');
-const garticModal = document.getElementById('garticModal');
 const snakeModal = document.getElementById('snakeModal');
+const forcaModal = document.getElementById('forcaModal');
+const garticPanel = document.getElementById('garticPanel');
+const openGarticBtn = document.getElementById('openGarticBtn');
+const openForcaBtn = document.getElementById('openForcaBtn');
+const openSnakeBtn = document.getElementById('openSnakeBtn');
+const closeGarticPanel = document.getElementById('closeGarticPanel');
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -124,11 +126,6 @@ async function carregarUsuario() {
     if (userNameSpan) userNameSpan.textContent = usuarioAtual;
     const nivel = dadosUsuario.nivel || 1;
     if (userLevelSpan) userLevelSpan.textContent = `Nv.${nivel}`;
-    if (userTitleSpan) userTitleSpan.textContent = getTitulo(nivel);
-    const xpAtual = (dadosUsuario.xp || 0) % 100;
-    const percentual = (xpAtual / 100) * 100;
-    if (xpBarFill) xpBarFill.style.width = `${percentual}%`;
-    if (xpTextSpan) xpTextSpan.textContent = `${xpAtual}/100 XP`;
     if (userAvatar) {
         if (nivel >= 20) userAvatar.textContent = "👑";
         else if (nivel >= 10) userAvatar.textContent = "💎";
@@ -233,11 +230,6 @@ async function limparChat(autor) {
 // JOGO DA FORCA
 // ============================================
 async function iniciarForca() {
-    if (forcaAtivo) {
-        await enviarMsgSistema("🪢 Já tem um jogo da forca ativo! Aguarde.");
-        return true;
-    }
-    
     forcaAtivo = true;
     palavraForca = palavrasForca[Math.floor(Math.random() * palavrasForca.length)].toUpperCase();
     letrasDescobertas = [];
@@ -248,20 +240,39 @@ async function iniciarForca() {
         letrasDescobertas.push('_');
     }
     
-    await enviarMsgSistema(`🪢 JOGO DA FORCA INICIADO!`);
-    await enviarMsgSistema(getForcaDisplay());
-    await enviarMsgSistema(`💜 Tentativas restantes: ${tentativasForca}`);
-    await enviarMsgSistema(`Digite uma letra no chat para jogar!`);
+    atualizarModalForca();
+    forcaModal.style.display = 'flex';
     
+    await enviarMsgSistema(`🪢 JOGO DA FORCA INICIADO! Uma palavra de ${palavraForca.length} letras!`);
     return true;
 }
 
-function getForcaDisplay() {
-    let display = "🪢 ";
-    for (let i = 0; i < letrasDescobertas.length; i++) {
-        display += letrasDescobertas[i] + " ";
+function atualizarModalForca() {
+    const wordDisplay = document.getElementById('forcaWord');
+    const attemptsDisplay = document.getElementById('forcaAttempts');
+    const lettersDisplay = document.getElementById('forcaLetters');
+    const drawingDisplay = document.getElementById('forcaDrawing');
+    const statusDisplay = document.getElementById('forcaStatus');
+    
+    if (wordDisplay) wordDisplay.textContent = letrasDescobertas.join(' ');
+    if (attemptsDisplay) attemptsDisplay.textContent = tentativasForca;
+    if (drawingDisplay) drawingDisplay.textContent = getForcaDesenho();
+    
+    // Mostrar letras erradas
+    if (lettersDisplay) {
+        lettersDisplay.innerHTML = letrasErradas.map(l => `<span class="letter-badge">${l}</span>`).join('');
     }
-    return display;
+    
+    // Status do jogo
+    if (statusDisplay) {
+        if (!letrasDescobertas.includes('_')) {
+            statusDisplay.innerHTML = '<span style="color:#4caf50">🎉 VOCÊ GANHOU! 🎉</span>';
+        } else if (tentativasForca <= 0) {
+            statusDisplay.innerHTML = `<span style="color:#ff0000">💀 FIM DE JOGO! A palavra era: ${palavraForca} 💀</span>`;
+        } else {
+            statusDisplay.innerHTML = '<span>💜 Tente adivinhar a palavra! 💜</span>';
+        }
+    }
 }
 
 function getForcaDesenho() {
@@ -278,19 +289,19 @@ function getForcaDesenho() {
     return desenhos[6 - tentativasForca];
 }
 
-async function palpitarForca(letra, usuario) {
-    if (!forcaAtivo) return false;
+async function palpitarForca(letra) {
+    if (!forcaAtivo) return;
     
     letra = letra.toUpperCase();
     
     if (letra.length !== 1 || !/[A-Z]/.test(letra)) {
-        await enviarMsgSistema(`${usuario}, digite apenas uma letra!`);
-        return false;
+        await enviarMsgSistema(`${usuarioAtual}, digite apenas uma letra!`);
+        return;
     }
     
     if (letrasDescobertas.includes(letra) || letrasErradas.includes(letra)) {
-        await enviarMsgSistema(`${usuario}, a letra "${letra}" já foi usada!`);
-        return false;
+        await enviarMsgSistema(`${usuarioAtual}, a letra "${letra}" já foi usada!`);
+        return;
     }
     
     if (palavraForca.includes(letra)) {
@@ -299,30 +310,26 @@ async function palpitarForca(letra, usuario) {
                 letrasDescobertas[i] = letra;
             }
         }
-        await enviarMsgSistema(`✅ ${usuario} acertou a letra "${letra}"!`);
-        await enviarMsgSistema(getForcaDisplay());
+        await enviarMsgSistema(`✅ ${usuarioAtual} acertou a letra "${letra}"!`);
+        atualizarModalForca();
         
         if (!letrasDescobertas.includes('_')) {
             const xpGanho = 50;
-            await adicionarXP(usuario, xpGanho);
-            await enviarMsgSistema(`🎉🎉🎉 ${usuario} ACERTOU A PALAVRA "${palavraForca}"! Ganhou +${xpGanho} XP! 🎉🎉🎉`);
+            await adicionarXP(usuarioAtual, xpGanho);
+            await enviarMsgSistema(`🎉🎉🎉 ${usuarioAtual} ACERTOU A PALAVRA "${palavraForca}"! Ganhou +${xpGanho} XP! 🎉🎉🎉`);
             forcaAtivo = false;
         }
     } else {
         tentativasForca--;
         letrasErradas.push(letra);
-        await enviarMsgSistema(`❌ ${usuario} errou a letra "${letra}"!`);
-        await enviarMsgSistema(getForcaDesenho());
-        await enviarMsgSistema(`💜 Tentativas restantes: ${tentativasForca}`);
+        await enviarMsgSistema(`❌ ${usuarioAtual} errou a letra "${letra}"!`);
+        atualizarModalForca();
         
         if (tentativasForca <= 0) {
             await enviarMsgSistema(`💀 FIM DE JOGO! A palavra era "${palavraForca}"! 💀`);
             forcaAtivo = false;
-        } else {
-            await enviarMsgSistema(getForcaDisplay());
         }
     }
-    return true;
 }
 
 // ============================================
@@ -331,7 +338,7 @@ async function palpitarForca(letra, usuario) {
 async function iniciarGartic() {
     if (garticAtivo) {
         await enviarMsgSistema("🎨 Já tem um jogo Gartic em andamento!");
-        return true;
+        return;
     }
     
     garticAtivo = true;
@@ -343,65 +350,57 @@ async function iniciarGartic() {
     await rtdb.ref('gartic/' + sessaoGartic).remove();
     
     await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o DESENHISTA!`);
-    await enviarMsgSistema(`✨ Adivinhe a palavra desenhada!`);
+    await enviarMsgSistema(`✨ Os outros jogadores devem adivinhar o desenho!`);
     await enviarMsgSistema(`⏱️ Tempo: 60 segundos!`);
     
-    abrirModalGartic();
+    abrirGarticPanel();
+    configurarGarticPainel();
     iniciarTimerGartic();
-    return true;
 }
 
-function abrirModalGartic() {
+function abrirGarticPanel() {
+    garticPanel.classList.add('open');
     canvasElement = document.getElementById('garticCanvas');
-    if (!canvasElement) return;
-    canvasCtx = canvasElement.getContext('2d');
-    canvasElement.width = 500;
-    canvasElement.height = 400;
-    canvasCtx.fillStyle = 'white';
-    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.strokeStyle = corAtual;
-    canvasCtx.lineWidth = tamanhoPincel;
-    canvasCtx.lineCap = 'round';
-    canvasCtx.lineJoin = 'round';
     
-    const wordDisplay = document.getElementById('garticWordDisplay');
-    const drawerInfo = document.getElementById('garticDrawerInfo');
-    
-    if (usuarioAtual === desenhistaAtual) {
-        if (wordDisplay) wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#a78bfa">${palavraSecreta}</strong>`;
-        if (drawerInfo) drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
-        configurarDesenho();
-        canvasElement.style.cursor = 'crosshair';
-    } else {
-        if (wordDisplay) wordDisplay.innerHTML = "❓ ADIVINHE O DESENHO! ❓";
-        if (drawerInfo) drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
-        escutarDesenho();
-        canvasElement.style.cursor = 'not-allowed';
+    if (canvasElement) {
+        canvasCtx = canvasElement.getContext('2d');
+        canvasElement.width = 400;
+        canvasElement.height = 300;
+        canvasCtx.fillStyle = 'white';
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.strokeStyle = corAtual;
+        canvasCtx.lineWidth = tamanhoPincel;
+        canvasCtx.lineCap = 'round';
+        canvasCtx.lineJoin = 'round';
     }
     
-    const historyDiv = document.getElementById('guessHistory');
-    if (historyDiv) historyDiv.innerHTML = '<div class="guess-history-title">💜 PALPITES:</div>';
-    if (garticModal) garticModal.style.display = 'flex';
+    const wordHint = document.getElementById('garticWordHint');
+    const drawerSpan = document.getElementById('currentDrawer');
+    const statusSpan = document.querySelector('.gartic-status .status-text');
+    
+    if (usuarioAtual === desenhistaAtual) {
+        if (wordHint) wordHint.innerHTML = `🎨 Você está desenhando: <strong style="color:#a78bfa">${palavraSecreta}</strong>`;
+        if (drawerSpan) drawerSpan.textContent = desenhistaAtual + " (Você)";
+        if (statusSpan) statusSpan.innerHTML = "🎨 VOCÊ É O DESENHISTA! Desenhe a palavra!";
+        habilitarDesenho(true);
+    } else {
+        if (wordHint) wordHint.innerHTML = "❓ Adivinhe o desenho! ❓";
+        if (drawerSpan) drawerSpan.textContent = desenhistaAtual;
+        if (statusSpan) statusSpan.innerHTML = "💜 Aguardando o desenhista...";
+        habilitarDesenho(false);
+        escutarDesenho();
+    }
+    
+    document.getElementById('guessHistoryList').innerHTML = '';
 }
 
-function escutarDesenho() {
-    const desenhoRef = rtdb.ref('gartic/' + sessaoGartic);
-    desenhoRef.off();
-    desenhoRef.on('child_added', (snapshot) => {
-        if (usuarioAtual === desenhistaAtual) return;
-        const traco = snapshot.val();
-        if (canvasCtx && canvasElement) {
-            canvasCtx.beginPath();
-            canvasCtx.strokeStyle = traco.cor;
-            canvasCtx.lineWidth = traco.tamanho;
-            canvasCtx.moveTo(traco.x1, traco.y1);
-            canvasCtx.lineTo(traco.x2, traco.y2);
-            canvasCtx.stroke();
-        }
-    });
+function habilitarDesenho(enable) {
+    if (canvasElement) {
+        canvasElement.style.cursor = enable ? 'crosshair' : 'not-allowed';
+    }
 }
 
-function configurarDesenho() {
+function configurarGarticPainel() {
     if (!canvasElement) return;
     
     function getCoords(e) {
@@ -475,27 +474,45 @@ function configurarDesenho() {
     canvasElement.addEventListener('touchend', stopDrawing);
 }
 
+function escutarDesenho() {
+    const desenhoRef = rtdb.ref('gartic/' + sessaoGartic);
+    desenhoRef.off();
+    desenhoRef.on('child_added', (snapshot) => {
+        if (usuarioAtual === desenhistaAtual) return;
+        const traco = snapshot.val();
+        if (canvasCtx && canvasElement) {
+            canvasCtx.beginPath();
+            canvasCtx.strokeStyle = traco.cor;
+            canvasCtx.lineWidth = traco.tamanho;
+            canvasCtx.moveTo(traco.x1, traco.y1);
+            canvasCtx.lineTo(traco.x2, traco.y2);
+            canvasCtx.stroke();
+        }
+    });
+}
+
 function iniciarTimerGartic() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(async () => {
         if (!garticAtivo) { clearInterval(timerInterval); return; }
         tempoRestante--;
-        const timerDisplay = document.getElementById('garticTimer');
-        if (timerDisplay) timerDisplay.innerHTML = `⏱️ ${tempoRestante}s`;
+        
+        const timerDisplay = document.querySelector('.gartic-status');
+        if (timerDisplay && tempoRestante <= 10) {
+            timerDisplay.style.backgroundColor = 'rgba(255,0,0,0.2)';
+        }
+        
         if (tempoRestante <= 0) {
             clearInterval(timerInterval);
             await enviarMsgSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
             fecharGartic();
-        } else if (tempoRestante <= 10) {
-            const timerDisplay = document.getElementById('garticTimer');
-            if (timerDisplay) timerDisplay.style.color = '#ff0000';
         }
     }, 1000);
 }
 
 async function palpiteGartic(palpite) {
     if (!garticAtivo) {
-        await enviarMsgSistema("🎨 Não há jogo Gartic ativo! Use /gartic para começar.");
+        await enviarMsgSistema("🎨 Não há jogo Gartic ativo!");
         return;
     }
     
@@ -519,13 +536,13 @@ async function palpiteGartic(palpite) {
     } else {
         await enviarMsgSistema(`❌ ${usuarioAtual} palpitou: "${palpite}" - ERRADO!`);
         
-        const history = document.getElementById('guessHistory');
-        if (history) {
+        const historyList = document.getElementById('guessHistoryList');
+        if (historyList) {
             const item = document.createElement('div');
             item.className = 'guess-item';
             item.innerHTML = `<span style="color:#a78bfa">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
-            history.appendChild(item);
-            history.scrollTop = history.scrollHeight;
+            historyList.appendChild(item);
+            historyList.scrollTop = historyList.scrollHeight;
         }
     }
 }
@@ -533,7 +550,7 @@ async function palpiteGartic(palpite) {
 function fecharGartic() {
     garticAtivo = false;
     if (timerInterval) clearInterval(timerInterval);
-    if (garticModal) garticModal.style.display = 'none';
+    garticPanel.classList.remove('open');
     if (sessaoGartic) {
         rtdb.ref('gartic/' + sessaoGartic).remove();
     }
@@ -565,7 +582,7 @@ function iniciarSnake() {
     desenharSnake();
     
     snakeGame.gameLoop = setInterval(atualizarSnake, 100);
-    if (snakeModal) snakeModal.style.display = 'flex';
+    snakeModal.style.display = 'flex';
 }
 
 function gerarComida() {
@@ -672,15 +689,6 @@ async function enviarMensagem(texto) {
     if (cmd === '/cls') { await limparChat(usuarioAtual); return; }
     if (cmd.startsWith('/kick')) { await kickUser(texto, usuarioAtual); return; }
     if (cmd.startsWith('/gunto')) { await enviarGunto(texto, usuarioAtual); return; }
-    if (cmd === '/forca') { await iniciarForca(); return; }
-    if (cmd === '/gartic') { await iniciarGartic(); return; }
-    if (cmd === '/snake') { iniciarSnake(); return; }
-    
-    // Verificar se é palpite da forca
-    if (forcaAtivo && texto.length === 1 && /[a-zA-Z]/.test(texto)) {
-        await palpitarForca(texto, usuarioAtual);
-        return;
-    }
     
     await adicionarXP(usuarioAtual, 5);
     await db.collection('mensagens').add({
@@ -695,7 +703,7 @@ function carregarMensagens() {
     db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snap) => {
         if (!messagesDiv) return;
         if (snap.empty) {
-            messagesDiv.innerHTML = '<div class="welcome-box">💜 CHAT ROXO 💜<br>🎮 /forca | 🎨 /gartic | 🐍 /snake | 🔫 /gunto | 👢 /kick | 📷 Envie fotos!</div>';
+            messagesDiv.innerHTML = '<div class="welcome-box">💜 CHAT ROXO 💜<br>Clique nos botões da esquerda para jogar!</div>';
             return;
         }
         let html = '';
@@ -744,9 +752,9 @@ async function entrarChat() {
     localStorage.setItem('chatUsername', nome);
     await carregarUsuario();
     await enviarMsgSistema(`${nome} entrou no chat 💜`);
-    if (telaLogin) telaLogin.style.display = 'none';
-    if (telaChat) telaChat.style.display = 'flex';
-    if (messageInput) messageInput.focus();
+    telaLogin.style.display = 'none';
+    telaChat.style.display = 'flex';
+    messageInput.focus();
 }
 
 // ============================================
@@ -754,17 +762,17 @@ async function entrarChat() {
 // ============================================
 if (photoBtn) {
     photoBtn.onclick = () => {
-        if (photoModal) photoModal.style.display = 'flex';
+        photoModal.style.display = 'flex';
         if (photoInput) photoInput.value = '';
         if (photoPreview) photoPreview.innerHTML = '';
     };
 }
 
-document.querySelectorAll('.close-modal, .close-gartic, .close-snake').forEach(el => {
+document.querySelectorAll('.close-modal, .close-forca, .close-snake').forEach(el => {
     if (el) {
         el.onclick = () => {
             if (photoModal) photoModal.style.display = 'none';
-            if (garticModal) garticModal.style.display = 'none';
+            if (forcaModal) forcaModal.style.display = 'none';
             if (snakeModal) snakeModal.style.display = 'none';
             if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
         };
@@ -814,7 +822,7 @@ if (sendPhotoBtn) {
             });
             
             await adicionarXP(usuarioAtual, 5);
-            if (photoModal) photoModal.style.display = 'none';
+            photoModal.style.display = 'none';
             if (photoInput) photoInput.value = '';
             if (photoPreview) photoPreview.innerHTML = '';
             await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
@@ -830,7 +838,47 @@ if (sendPhotoBtn) {
 }
 
 // ============================================
-// CONFIGURAÇÕES DOS BOTÕES
+// BOTÕES DA SIDEBAR
+// ============================================
+if (openGarticBtn) {
+    openGarticBtn.onclick = () => {
+        if (!garticAtivo) {
+            iniciarGartic();
+        } else {
+            abrirGarticPanel();
+        }
+    };
+}
+
+if (openForcaBtn) {
+    openForcaBtn.onclick = () => {
+        iniciarForca();
+    };
+}
+
+if (openSnakeBtn) {
+    openSnakeBtn.onclick = () => {
+        iniciarSnake();
+    };
+}
+
+if (closeGarticPanel) {
+    closeGarticPanel.onclick = () => {
+        fecharGartic();
+    };
+}
+
+// Fechar Gartic panel clicando fora
+document.addEventListener('click', (e) => {
+    if (garticPanel && garticPanel.classList.contains('open')) {
+        if (!garticPanel.contains(e.target) && !openGarticBtn.contains(e.target)) {
+            fecharGartic();
+        }
+    }
+});
+
+// ============================================
+// CONFIGURAÇÕES DOS BOTÕES DO GARTIC
 // ============================================
 document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.onclick = () => {
@@ -849,20 +897,18 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     };
 });
 
-const brushSizeEl = document.getElementById('brushSize');
-if (brushSizeEl) {
-    brushSizeEl.oninput = (e) => {
+const brushSizePanel = document.getElementById('brushSizePanel');
+if (brushSizePanel) {
+    brushSizePanel.oninput = (e) => {
         tamanhoPincel = parseInt(e.target.value);
         if (canvasCtx) canvasCtx.lineWidth = tamanhoPincel;
-        const brushValue = document.getElementById('brushValue');
-        if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
     };
 }
 
-const garticGuessBtn = document.getElementById('garticGuessBtn');
-if (garticGuessBtn) {
-    garticGuessBtn.addEventListener('click', () => {
-        const input = document.getElementById('garticGuess');
+const garticGuessBtnPanel = document.getElementById('garticGuessBtn');
+if (garticGuessBtnPanel) {
+    garticGuessBtnPanel.addEventListener('click', () => {
+        const input = document.getElementById('garticGuessInput');
         if (input && input.value.trim()) {
             palpiteGartic(input.value);
             input.value = '';
@@ -870,14 +916,42 @@ if (garticGuessBtn) {
     });
 }
 
-const garticGuessInput = document.getElementById('garticGuess');
-if (garticGuessInput) {
-    garticGuessInput.addEventListener('keypress', (e) => {
+const garticGuessInputPanel = document.getElementById('garticGuessInput');
+if (garticGuessInputPanel) {
+    garticGuessInputPanel.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && e.target.value.trim()) {
             palpiteGartic(e.target.value);
             e.target.value = '';
         }
     });
+}
+
+const forcaGuessBtn = document.getElementById('forcaGuessBtn');
+if (forcaGuessBtn) {
+    forcaGuessBtn.addEventListener('click', () => {
+        const input = document.getElementById('forcaLetter');
+        if (input && input.value.trim()) {
+            palpitarForca(input.value);
+            input.value = '';
+        }
+    });
+}
+
+const forcaLetterInput = document.getElementById('forcaLetter');
+if (forcaLetterInput) {
+    forcaLetterInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            palpitarForca(e.target.value);
+            e.target.value = '';
+        }
+    });
+}
+
+const forcaNewGameBtn = document.getElementById('forcaNewGameBtn');
+if (forcaNewGameBtn) {
+    forcaNewGameBtn.onclick = () => {
+        iniciarForca();
+    };
 }
 
 const snakeRestartBtn = document.getElementById('snakeRestartBtn');
@@ -925,4 +999,4 @@ if (salvo && loginInput) { loginInput.value = salvo; entrarChat(); }
 carregarMensagens();
 setInterval(async () => { const snap = await db.collection('usuarios').get(); if (onlineCountSpan) onlineCountSpan.textContent = snap.size; }, 5000);
 
-console.log("✅ CHAT ROXO PRONTO! Comandos: /forca, /gartic, /snake, /gunto, /kick, /cls, envio de fotos!");
+console.log("✅ CHAT ROXO PRONTO! Clique nos botões da esquerda para jogar Gartic, Forca ou Snake!");

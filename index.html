@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💜 CHAT ROXO - Sistema de Jogos</title>
+    <title>💜 CHAT ROXO - Gartic + Forca</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
+    <!-- TELA DE LOGIN -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
             <div class="logo-icon">💜</div>
@@ -20,45 +21,50 @@
                 <button id="loginBtn">✨ ENTRAR</button>
             </div>
             <div class="login-info">
-                <span>/gunto [msg]</span>
-                <span>/kick @user</span>
-                <span>/cls</span>
-                <span>/forca</span>
-                <span>/gartic</span>
-                <span>/snake</span>
-                <span>📷 Fotos</span>
+                <span>🎨 Gartic</span>
+                <span>🪢 Forca</span>
+                <span>🐍 Snake</span>
+                <span>🔫 Gunto</span>
+                <span>👢 Kick</span>
             </div>
         </div>
     </div>
 
+    <!-- CHAT PRINCIPAL -->
     <div class="chat-main" id="chatMain" style="display: none;">
+        <!-- BARRA LATERAL ESQUERDA (JOGOS) -->
+        <div class="sidebar">
+            <div class="sidebar-logo">💜</div>
+            <button class="sidebar-btn" id="openGarticBtn">
+                <span class="btn-icon">🎨</span>
+                <span class="btn-text">GARTIC</span>
+            </button>
+            <button class="sidebar-btn" id="openForcaBtn">
+                <span class="btn-icon">🪢</span>
+                <span class="btn-text">FORCA</span>
+            </button>
+            <button class="sidebar-btn" id="openSnakeBtn">
+                <span class="btn-icon">🐍</span>
+                <span class="btn-text">SNAKE</span>
+            </button>
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sidebarAvatar">👤</div>
+                <div class="sidebar-name" id="sidebarName">---</div>
+                <div class="sidebar-level" id="sidebarLevel">Nv.1</div>
+            </div>
+        </div>
+
+        <!-- ÁREA DO CHAT PRINCIPAL -->
         <div class="chat-container">
             <div class="chat-header">
-                <div class="logo-small">
-                    <span class="logo-small-icon">💜</span>
-                    <span class="logo-small-text">CHAT ROXO</span>
-                </div>
-                <div class="user-info">
-                    <div class="user-avatar" id="userAvatar">👤</div>
-                    <div class="user-details">
-                        <div class="user-name" id="userName">---</div>
-                        <div class="user-level">
-                            <span id="userLevel">Nv.1</span>
-                            <span id="userTitle">INICIANTE</span>
-                        </div>
-                        <div class="xp-bar">
-                            <div class="xp-fill" id="xpBarFill"></div>
-                            <span id="xpText">0/100 XP</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="online-count">👥 <span id="onlineCount">0</span></div>
+                <div class="chat-title">💜 CHAT PRINCIPAL</div>
+                <div class="online-count">👥 <span id="onlineCount">0</span> online</div>
             </div>
 
             <div class="messages-area" id="messagesArea">
                 <div class="welcome-box">
                     💜 BEM-VINDO AO CHAT ROXO! 💜<br>
-                    🎮 /forca | 🎨 /gartic | 🐍 /snake | 🔫 /gunto | 👢 /kick | 📷 Envie fotos!
+                    Clique nos botões da esquerda para jogar!
                 </div>
             </div>
 
@@ -71,29 +77,22 @@
                 <div class="typing-indicator" id="typingIndicator"></div>
             </div>
         </div>
-    </div>
 
-    <div id="photoModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h2>📷 Enviar Foto</h2>
-            <input type="file" id="photoInput" accept="image/*">
-            <div id="photoPreview" class="photo-preview"></div>
-            <button id="sendPhotoBtn" class="send-photo-btn">📤 ENVIAR FOTO</button>
-        </div>
-    </div>
-
-    <div id="garticModal" class="modal">
-        <div class="gartic-container">
-            <div class="gartic-header">
-                <h2>🎨 GARTIC GAME</h2>
-                <button class="close-gartic">&times;</button>
+        <!-- PAINEL DO GARTIC (LATERAL DIREITA) -->
+        <div class="gartic-panel" id="garticPanel">
+            <div class="panel-header">
+                <h3>🎨 GARTIC GAME</h3>
+                <button class="close-panel" id="closeGarticPanel">✕</button>
             </div>
-            <div class="gartic-body">
-                <div class="gartic-word-display" id="garticWordDisplay"></div>
-                <div class="gartic-timer" id="garticTimer">⏱️ 60s</div>
-                <div class="gartic-drawer" id="garticDrawerInfo"></div>
-                <canvas id="garticCanvas" width="500" height="400" class="gartic-canvas"></canvas>
+            <div class="panel-body">
+                <div class="gartic-status" id="garticStatus">
+                    <span class="status-text">📢 Nenhum jogo ativo</span>
+                </div>
+                <div class="gartic-turn" id="garticTurn">
+                    <span>🎨 Vez de: <strong id="currentDrawer">---</strong></span>
+                </div>
+                <div class="gartic-word-hint" id="garticWordHint"></div>
+                <canvas id="garticCanvas" width="400" height="300" class="gartic-canvas-panel"></canvas>
                 <div class="gartic-tools">
                     <button class="tool-btn" data-color="#000000">⚫</button>
                     <button class="tool-btn" data-color="#FF0000">🔴</button>
@@ -101,18 +100,41 @@
                     <button class="tool-btn" data-color="#00FF00">🟢</button>
                     <button class="tool-btn" data-color="#FFFF00">🟡</button>
                     <button class="tool-btn" data-clear="true">🗑️</button>
-                    <input type="range" id="brushSize" min="1" max="20" value="3">
-                    <span id="brushValue">3px</span>
+                    <input type="range" id="brushSizePanel" min="1" max="20" value="3">
                 </div>
-                <div class="gartic-guesses">
-                    <input type="text" id="garticGuess" placeholder="Digite seu palpite...">
+                <div class="gartic-guess-area">
+                    <input type="text" id="garticGuessInput" placeholder="Digite seu palpite...">
                     <button id="garticGuessBtn">💜 PALPITAR</button>
-                    <div id="guessHistory" class="guess-history"></div>
+                </div>
+                <div class="gartic-history" id="garticHistory">
+                    <div class="history-title">📝 Histórico de palpites:</div>
+                    <div id="guessHistoryList"></div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- MODAL DA FORCA -->
+    <div id="forcaModal" class="modal">
+        <div class="forca-container">
+            <div class="forca-header">
+                <h2>🪢 JOGO DA FORCA</h2>
+                <button class="close-forca">&times;</button>
+            </div>
+            <div class="forca-status" id="forcaStatus"></div>
+            <div class="forca-word" id="forcaWord"></div>
+            <div class="forca-drawing" id="forcaDrawing">  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========</div>
+            <div class="forca-attempts">💀 Tentativas: <span id="forcaAttempts">6</span></div>
+            <div class="forca-letters" id="forcaLetters"></div>
+            <div class="forca-input">
+                <input type="text" id="forcaLetter" maxlength="1" placeholder="Digite uma letra">
+                <button id="forcaGuessBtn">PALPITAR</button>
+            </div>
+            <button id="forcaNewGameBtn" class="new-game-btn">🔄 NOVO JOGO</button>
+        </div>
+    </div>
+
+    <!-- MODAL DA COBRA -->
     <div id="snakeModal" class="modal">
         <div class="snake-container">
             <div class="snake-header">
@@ -128,6 +150,18 @@
         </div>
     </div>
 
+    <!-- MODAL DE FOTO -->
+    <div id="photoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>📷 Enviar Foto</h2>
+            <input type="file" id="photoInput" accept="image/*">
+            <div id="photoPreview" class="photo-preview"></div>
+            <button id="sendPhotoBtn" class="send-photo-btn">📤 ENVIAR FOTO</button>
+        </div>
+    </div>
+
+    <!-- ALERTA GUNTO -->
     <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
 
     <script src="script.js"></script>

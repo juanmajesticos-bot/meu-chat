@@ -8,13 +8,11 @@ body {
     font-family: 'Segoe UI', 'Poppins', sans-serif;
     background: linear-gradient(135deg, #1a0b2e, #2e1065, #4c1d95);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden;
 }
 
 /* ============================================ */
-/* TELA DE LOGIN ROXA */
+/* TELA DE LOGIN */
 /* ============================================ */
 .login-screen {
     position: fixed;
@@ -38,7 +36,6 @@ body {
     width: 90%;
     max-width: 420px;
     border: 1px solid rgba(124, 58, 237, 0.4);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
     animation: fadeInUp 0.6s ease;
 }
 
@@ -65,7 +62,6 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 30px;
-    letter-spacing: 2px;
 }
 
 .login-input-group {
@@ -82,17 +78,12 @@ body {
     font-size: 1rem;
     color: white;
     text-align: center;
-    transition: all 0.3s;
 }
 
 .login-input-group input:focus {
     outline: none;
     border-color: #a78bfa;
     box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
-}
-
-.login-input-group input::placeholder {
-    color: rgba(255, 255, 255, 0.5);
 }
 
 .login-input-group button {
@@ -131,28 +122,98 @@ body {
 }
 
 /* ============================================ */
-/* CHAT PRINCIPAL ROXO */
+/* CHAT PRINCIPAL COM SIDEBAR */
 /* ============================================ */
 .chat-main {
+    display: flex;
     width: 100%;
     height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
+    background: #0f0717;
 }
 
-.chat-container {
-    width: 100%;
-    max-width: 1100px;
-    height: 92vh;
-    background: #0f0717;
-    border-radius: 24px;
+/* SIDEBAR ESQUERDA */
+.sidebar {
+    width: 80px;
+    background: linear-gradient(180deg, #1a0b2e, #2e1065);
     display: flex;
     flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    gap: 20px;
+    border-right: 1px solid #7c3aed;
+}
+
+.sidebar-logo {
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+.sidebar-btn {
+    width: 55px;
+    height: 55px;
+    background: rgba(124, 58, 237, 0.2);
+    border: 1px solid #7c3aed;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: white;
+}
+
+.sidebar-btn:hover {
+    background: #7c3aed;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(124, 58, 237, 0.5);
+}
+
+.sidebar-btn .btn-icon {
+    font-size: 24px;
+}
+
+.sidebar-btn .btn-text {
+    font-size: 10px;
+}
+
+.sidebar-user {
+    margin-top: auto;
+    text-align: center;
+}
+
+.sidebar-avatar {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.sidebar-name {
+    font-size: 10px;
+    color: #c4b5fd;
+    max-width: 70px;
     overflow: hidden;
-    border: 1px solid rgba(124, 58, 237, 0.3);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    text-overflow: ellipsis;
+}
+
+.sidebar-level {
+    font-size: 9px;
+    color: #a78bfa;
+}
+
+/* CHAT CONTAINER CENTRAL */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
 }
 
 .chat-header {
@@ -164,85 +225,10 @@ body {
     border-bottom: 2px solid #7c3aed;
 }
 
-.logo-small {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.logo-small-icon {
-    font-size: 28px;
-}
-
-.logo-small-text {
+.chat-title {
+    color: white;
+    font-weight: bold;
     font-size: 18px;
-    font-weight: bold;
-    background: linear-gradient(135deg, #a78bfa, #7c3aed);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.user-info {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
-.user-avatar {
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #7c3aed, #4c1d95);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
-}
-
-.user-name {
-    color: white;
-    font-weight: bold;
-}
-
-.user-level {
-    display: flex;
-    gap: 10px;
-    font-size: 12px;
-}
-
-.user-level span:first-child {
-    color: #a78bfa;
-}
-
-.user-level span:last-child {
-    color: #c4b5fd;
-}
-
-.xp-bar {
-    position: relative;
-    width: 150px;
-    height: 12px;
-    background: #2e1065;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-top: 5px;
-}
-
-.xp-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #7c3aed, #a78bfa);
-    width: 0%;
-    transition: width 0.3s;
-}
-
-.xp-bar span {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 8px;
-    color: white;
 }
 
 .online-count {
@@ -285,7 +271,6 @@ body {
     line-height: 1.8;
 }
 
-/* MENSAGENS */
 .message {
     display: flex;
     flex-direction: column;
@@ -383,17 +368,11 @@ body {
     border: 1px solid #7c3aed;
     border-radius: 12px;
     color: white;
-    font-size: 14px;
 }
 
 .typing-area input:focus {
     outline: none;
     border-color: #a78bfa;
-    box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
-}
-
-.typing-area input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
 }
 
 .typing-area button {
@@ -404,12 +383,6 @@ body {
     color: white;
     font-weight: bold;
     cursor: pointer;
-    transition: all 0.3s;
-}
-
-.typing-area button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
 }
 
 .photo-btn {
@@ -425,10 +398,150 @@ body {
     font-size: 11px;
     color: #a78bfa;
     padding: 5px 0 0 5px;
-    min-height: 25px;
 }
 
-/* MODAL */
+/* ============================================ */
+/* PAINEL DO GARTIC (LATERAL DIREITA) */
+/* ============================================ */
+.gartic-panel {
+    width: 380px;
+    background: #0f0717;
+    border-left: 2px solid #7c3aed;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 500;
+}
+
+.gartic-panel.open {
+    transform: translateX(0);
+}
+
+.panel-header {
+    background: linear-gradient(135deg, #1a0b2e, #2e1065);
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #7c3aed;
+}
+
+.panel-header h3 {
+    color: white;
+}
+
+.close-panel {
+    background: none;
+    border: none;
+    color: #a78bfa;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.panel-body {
+    padding: 15px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.gartic-status {
+    background: rgba(124, 58, 237, 0.2);
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.gartic-turn {
+    margin-bottom: 10px;
+    text-align: center;
+    color: #c4b5fd;
+}
+
+.gartic-word-hint {
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.gartic-canvas-panel {
+    background: white;
+    border-radius: 10px;
+    width: 100%;
+    height: auto;
+    cursor: crosshair;
+    margin-bottom: 10px;
+}
+
+.gartic-tools {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.gartic-guess-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.gartic-guess-area input {
+    flex: 1;
+    padding: 10px;
+    background: #2e1065;
+    border: 1px solid #7c3aed;
+    border-radius: 8px;
+    color: white;
+}
+
+.gartic-guess-area button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+}
+
+.gartic-history {
+    background: #1a0b2e;
+    border-radius: 8px;
+    padding: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.history-title {
+    color: #a78bfa;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.guess-item {
+    font-size: 11px;
+    padding: 4px;
+    border-bottom: 1px solid #2e1065;
+    color: #c4b5fd;
+}
+
+/* ============================================ */
+/* MODAL DA FORCA */
+/* ============================================ */
 .modal {
     display: none;
     position: fixed;
@@ -442,106 +555,91 @@ body {
     align-items: center;
 }
 
-.modal-content {
+.forca-container {
     background: #0f0717;
     border-radius: 20px;
     padding: 30px;
     width: 90%;
     max-width: 500px;
     text-align: center;
-    border: 1px solid #7c3aed;
+    border: 2px solid #7c3aed;
 }
 
-.close-modal, .close-gartic, .close-snake {
-    float: right;
-    font-size: 28px;
-    cursor: pointer;
-    color: #a78bfa;
-}
-
-.close-modal:hover, .close-gartic:hover, .close-snake:hover {
-    color: #7c3aed;
-}
-
-.photo-preview {
-    margin: 20px 0;
-}
-
-.photo-preview img {
-    max-width: 100%;
-    border-radius: 10px;
-}
-
-.send-photo-btn {
-    padding: 12px 25px;
-    background: linear-gradient(135deg, #7c3aed, #4c1d95);
-    border: none;
-    border-radius: 12px;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-/* GARTIC */
-.gartic-container {
-    background: #0f0717;
-    border-radius: 20px;
-    padding: 20px;
-    width: 90%;
-    max-width: 600px;
-    border: 1px solid #7c3aed;
-}
-
-.gartic-header {
+.forca-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     color: white;
 }
 
-.gartic-canvas {
-    background: white;
-    border-radius: 10px;
-    cursor: crosshair;
-    width: 100%;
-    height: auto;
-}
-
-.gartic-tools {
-    display: flex;
-    gap: 8px;
-    margin: 10px 0;
-    flex-wrap: wrap;
-}
-
-.tool-btn {
-    width: 40px;
-    height: 40px;
-    border: none;
-    border-radius: 8px;
+.close-forca, .close-snake, .close-modal {
+    font-size: 28px;
     cursor: pointer;
-    font-size: 18px;
+    color: #a78bfa;
+    background: none;
+    border: none;
 }
 
-.gartic-guesses {
-    margin-top: 15px;
+.forca-word {
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: #a78bfa;
+    margin: 20px 0;
+}
+
+.forca-drawing {
+    font-family: monospace;
+    font-size: 14px;
+    white-space: pre;
+    background: #1a0b2e;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 15px 0;
+    color: #c4b5fd;
+}
+
+.forca-attempts {
+    color: #ff6b6b;
+    margin: 10px 0;
+}
+
+.forca-letters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.letter-badge {
+    background: #2e1065;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #a78bfa;
+}
+
+.forca-input {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    margin: 15px 0;
 }
 
-.gartic-guesses input {
+.forca-input input {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
     background: #2e1065;
     border: 1px solid #7c3aed;
     border-radius: 8px;
     color: white;
+    text-align: center;
+    font-size: 18px;
 }
 
-.gartic-guesses button {
-    padding: 10px 20px;
+.forca-input button, .new-game-btn {
+    padding: 12px 20px;
     background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
     border-radius: 8px;
@@ -549,16 +647,7 @@ body {
     cursor: pointer;
 }
 
-.guess-history {
-    width: 100%;
-    margin-top: 10px;
-    max-height: 100px;
-    overflow-y: auto;
-    font-size: 12px;
-    color: #c4b5fd;
-}
-
-/* JOGO DA COBRA */
+/* SNAKE */
 .snake-container {
     background: #0f0717;
     border-radius: 20px;
@@ -566,7 +655,7 @@ body {
     width: 90%;
     max-width: 500px;
     text-align: center;
-    border: 1px solid #7c3aed;
+    border: 2px solid #7c3aed;
 }
 
 .snake-header {
@@ -633,13 +722,11 @@ body {
 }
 
 /* RESPONSIVO */
-@media (max-width: 700px) {
-    .chat-container { height: 95vh; border-radius: 16px; }
-    .message-bubble { max-width: 85%; font-size: 13px; }
-    .gunto-alert { font-size: 1rem; padding: 15px 25px; width: 85%; text-align: center; }
-    .gartic-container { width: 95%; }
-    .snake-container { width: 95%; }
-    .xp-bar { width: 100px; }
-    .user-avatar { width: 40px; height: 40px; font-size: 20px; }
-    .logo-small-text { display: none; }
+@media (max-width: 900px) {
+    .sidebar { width: 60px; }
+    .sidebar-btn { width: 45px; height: 45px; }
+    .sidebar-btn .btn-icon { font-size: 20px; }
+    .sidebar-btn .btn-text { font-size: 8px; }
+    .gartic-panel { width: 320px; }
+    .message-bubble { max-width: 85%; }
 }
