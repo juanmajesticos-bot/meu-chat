@@ -27,6 +27,7 @@ let guntoTimeout = null;
 let garticAtivo = false;
 let palavraSecreta = "";
 let desenhistaAtual = "";
+let donoDoJogo = "";
 let tempoRestante = 60;
 let timerInterval = null;
 let desenhando = false;
@@ -258,12 +259,10 @@ function atualizarModalForca() {
     if (attemptsDisplay) attemptsDisplay.textContent = tentativasForca;
     if (drawingDisplay) drawingDisplay.textContent = getForcaDesenho();
     
-    // Mostrar letras erradas
     if (lettersDisplay) {
         lettersDisplay.innerHTML = letrasErradas.map(l => `<span class="letter-badge">${l}</span>`).join('');
     }
     
-    // Status do jogo
     if (statusDisplay) {
         if (!letrasDescobertas.includes('_')) {
             statusDisplay.innerHTML = '<span style="color:#4caf50">🎉 VOCÊ GANHOU! 🎉</span>';
@@ -333,38 +332,15 @@ async function palpitarForca(letra) {
 }
 
 // ============================================
-// JOGO GARTIC
-// ============================================
-// ============================================
-// VARIÁVEIS DO GARTIC (CORRIGIDAS)
-// ============================================
-let garticAtivo = false;
-let palavraSecreta = "";
-let desenhistaAtual = "";  // Quem iniciou o jogo
-let donoDoJogo = "";       // Quem pode desenhar
-let tempoRestante = 60;
-let timerInterval = null;
-let desenhando = false;
-let ultimaX = 0, ultimaY = 0;
-let corAtual = "#000000";
-let tamanhoPincel = 3;
-let canvasCtx = null;
-let canvasElement = null;
-let sessaoGartic = null;
-
-// ============================================
-// INICIAR GARTIC (SÓ QUEM DIGITOU /gartic)
+// JOGO GARTIC (VERSÃO COM TURNOS)
 // ============================================
 async function iniciarGartic() {
-    // Verificar se já tem um jogo ativo
     if (garticAtivo) {
         await enviarMsgSistema(`🎨 Já tem um jogo Gartic em andamento! ${desenhistaAtual} está desenhando.`);
-        // Apenas abrir o painel para ver o desenho
         abrirGarticPanel(false);
         return;
     }
     
-    // INICIAR NOVO JOGO - quem chamou é o desenhista
     garticAtivo = true;
     palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
     desenhistaAtual = usuarioAtual;
@@ -372,19 +348,15 @@ async function iniciarGartic() {
     tempoRestante = 60;
     sessaoGartic = Date.now().toString();
     
-    // Limpar desenhos anteriores
     await rtdb.ref('gartic/' + sessaoGartic).remove();
     
-    // Anunciar no chat
     await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o DESENHISTA!`);
     await enviarMsgSistema(`✨ Os outros jogadores devem adivinhar o desenho!`);
     await enviarMsgSistema(`⏱️ Tempo: 60 segundos!`);
     
-    // Abrir o painel PERMITINDO DESENHAR (pois é o dono)
     abrirGarticPanel(true);
     iniciarTimerGartic();
     
-    // Salvar estado do jogo no Firebase para outros saberem
     await db.collection('garticEstado').doc('atual').set({
         ativo: true,
         desenhista: desenhistaAtual,
@@ -394,12 +366,9 @@ async function iniciarGartic() {
     });
 }
 
-// ESCUTAR SE ALGUÉM INICIOU UM JOGO
 db.collection('garticEstado').doc('atual').onSnapshot(async (doc) => {
     if (doc.exists && doc.data().ativo) {
         const data = doc.data();
-        
-        // Se não tem jogo ativo localmente, mas tem no Firebase
         if (!garticAtivo && data.desenhista !== usuarioAtual) {
             garticAtivo = true;
             palavraSecreta = data.palavra;
@@ -408,7 +377,6 @@ db.collection('garticEstado').doc('atual').onSnapshot(async (doc) => {
             sessaoGartic = data.sessao;
             tempoRestante = 60;
             
-            // Abrir painel apenas para VER (não desenhar)
             abrirGarticPanel(false);
             iniciarTimerGartic();
             
@@ -441,21 +409,18 @@ function abrirGarticPanel(podeDesenhar) {
     const drawerSpan = document.getElementById('currentDrawer');
     const statusSpan = document.querySelector('.gartic-status .status-text');
     
-    // Verificar se o usuário atual é o desenhista
     const isDrawer = (usuarioAtual === desenhistaAtual);
     
     if (isDrawer && podeDesenhar) {
-        // É O DESENHISTA - vê a palavra e pode desenhar
         if (wordHint) wordHint.innerHTML = `🎨 Você está desenhando: <strong style="color:#a78bfa">${palavraSecreta}</strong>`;
         if (drawerSpan) drawerSpan.innerHTML = `🎨 ${desenhistaAtual} <span style="color:#4caf50">(Você - Desenhista)</span>`;
         if (statusSpan) {
-            statusSpan.innerHTML = "🎨 VOCÊ É O DESENHISTA! Desenhe a palavra para os outros adivinharem!";
+            statusSpan.innerHTML = "🎨 VOCÊ É O DESENHISTA! Desenhe a palavra!";
             statusSpan.style.background = "#4c1d95";
         }
         habilitarDesenho(true);
         configurarDesenhoGartic();
     } else {
-        // NÃO É DESENHISTA - só pode ver e palpitar
         if (wordHint) wordHint.innerHTML = "❓ ADIVINHE O DESENHO! ❓";
         if (drawerSpan) drawerSpan.innerHTML = `🎨 ${desenhistaAtual} <span style="color:#ff9800">(Desenhista)</span>`;
         if (statusSpan) {
@@ -495,9 +460,8 @@ function configurarDesenhoGartic() {
     }
     
     function startDrawing(e) {
-        // SÓ QUEM INICIOU O JOGO PODE DESENHAR
         if (usuarioAtual !== desenhistaAtual) {
-            enviarMsgSistema(`❌ Apenas ${desenhistaAtual} pode desenhar! É a vez dele/dela!`);
+            enviarMsgSistema(`❌ Apenas ${desenhistaAtual} pode desenhar!`);
             return;
         }
         e.preventDefault();
@@ -580,7 +544,7 @@ function iniciarTimerGartic() {
         if (timerDisplay) {
             if (tempoRestante <= 10) {
                 timerDisplay.style.backgroundColor = 'rgba(255,0,0,0.2)';
-                timerDisplay.innerHTML = `<span class="status-text">⏰ ${tempoRestante} segundos restantes!</span>`;
+                timerDisplay.innerHTML = `<span class="status-text">⏰ ${tempoRestante}s restantes!</span>`;
             } else {
                 timerDisplay.innerHTML = `<span class="status-text">⏱️ Tempo: ${tempoRestante}s</span>`;
             }
@@ -600,7 +564,6 @@ async function palpiteGartic(palpite) {
         return;
     }
     
-    // Desenhista NÃO pode palpitar
     if (usuarioAtual === desenhistaAtual) {
         await enviarMsgSistema(`❌ ${usuarioAtual}, você é o DESENHISTA! Não pode palpitar!`);
         return;
@@ -643,23 +606,7 @@ function fecharGartic() {
     desenhistaAtual = null;
     donoDoJogo = null;
     palavraSecreta = "";
-    
-    // Limpar estado no Firebase
     db.collection('garticEstado').doc('atual').delete();
-}
-
-// ============================================
-// BOTÃO DO GARTIC NA SIDEBAR
-// ============================================
-if (openGarticBtn) {
-    openGarticBtn.onclick = () => {
-        if (!garticAtivo) {
-            iniciarGartic();
-        } else {
-            // Se já tem jogo, só abre o painel
-            abrirGarticPanel(usuarioAtual === desenhistaAtual);
-        }
-    };
 }
 
 // ============================================
@@ -681,14 +628,14 @@ function iniciarSnake() {
     const scoreSpan = document.getElementById('snakeScore');
     if (scoreSpan) scoreSpan.innerText = '0';
     
-    gerarComida();
+    gerarComidaSnake();
     desenharSnake();
     
     snakeGame.gameLoop = setInterval(atualizarSnake, 100);
     snakeModal.style.display = 'flex';
 }
 
-function gerarComida() {
+function gerarComidaSnake() {
     if (!snakeGame.canvas) return;
     const maxX = Math.floor(snakeGame.canvas.width / 20) - 1;
     const maxY = Math.floor(snakeGame.canvas.height / 20) - 1;
@@ -750,7 +697,7 @@ function atualizarSnake() {
         snakeGame.score += 10;
         const scoreSpan = document.getElementById('snakeScore');
         if (scoreSpan) scoreSpan.innerText = snakeGame.score;
-        gerarComida();
+        gerarComidaSnake();
     } else {
         snakeGame.snake.pop();
     }
@@ -782,7 +729,7 @@ function handleSnakeKey(e) {
 }
 
 // ============================================
-// ENVIO DE MENSAGENS
+// ENVIO DE MENSAGENS DO CHAT
 // ============================================
 async function enviarMensagem(texto) {
     if (!texto.trim() || !usuarioAtual) return;
@@ -948,7 +895,7 @@ if (openGarticBtn) {
         if (!garticAtivo) {
             iniciarGartic();
         } else {
-            abrirGarticPanel();
+            abrirGarticPanel(usuarioAtual === desenhistaAtual);
         }
     };
 }
@@ -971,17 +918,16 @@ if (closeGarticPanel) {
     };
 }
 
-// Fechar Gartic panel clicando fora
 document.addEventListener('click', (e) => {
     if (garticPanel && garticPanel.classList.contains('open')) {
-        if (!garticPanel.contains(e.target) && !openGarticBtn.contains(e.target)) {
+        if (!garticPanel.contains(e.target) && openGarticBtn && !openGarticBtn.contains(e.target)) {
             fecharGartic();
         }
     }
 });
 
 // ============================================
-// CONFIGURAÇÕES DOS BOTÕES DO GARTIC
+// CONFIGURAÇÕES DOS BOTÕES
 // ============================================
 document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.onclick = () => {
@@ -1102,4 +1048,4 @@ if (salvo && loginInput) { loginInput.value = salvo; entrarChat(); }
 carregarMensagens();
 setInterval(async () => { const snap = await db.collection('usuarios').get(); if (onlineCountSpan) onlineCountSpan.textContent = snap.size; }, 5000);
 
-console.log("✅ CHAT ROXO PRONTO! Clique nos botões da esquerda para jogar Gartic, Forca ou Snake!");
+console.log("✅ CHAT ROXO VERSÃO 1 PRONTO! Comandos: /gunto, /kick, /cls | Jogos: Gartic, Forca, Snake");
