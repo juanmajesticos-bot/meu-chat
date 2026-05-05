@@ -3,37 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💙 BLUE CHAT - Fotos e Jogos</title>
+    <title>💜 CHAT ROXO - Sistema de Jogos</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <!-- TELA DE LOGIN -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
-            <div class="logo-icon">💙</div>
-            <h1>BLUE CHAT</h1>
+            <div class="logo-icon">💜</div>
+            <h1>CHAT ROXO</h1>
             <div class="login-input-group">
                 <input type="text" id="loginUsername" placeholder="Seu nome" maxlength="20">
-                <button id="loginBtn">ENTRAR</button>
+                <button id="loginBtn">✨ ENTRAR</button>
             </div>
             <div class="login-info">
                 <span>/gunto [msg]</span>
                 <span>/kick @user</span>
                 <span>/cls</span>
+                <span>/forca</span>
                 <span>/gartic</span>
                 <span>/snake</span>
-                <span>📷 Envie fotos!</span>
+                <span>📷 Fotos</span>
             </div>
         </div>
     </div>
 
-    <!-- TELA DO CHAT -->
     <div class="chat-main" id="chatMain" style="display: none;">
         <div class="chat-container">
             <div class="chat-header">
+                <div class="logo-small">
+                    <span class="logo-small-icon">💜</span>
+                    <span class="logo-small-text">CHAT ROXO</span>
+                </div>
                 <div class="user-info">
                     <div class="user-avatar" id="userAvatar">👤</div>
                     <div class="user-details">
@@ -52,32 +56,33 @@
             </div>
 
             <div class="messages-area" id="messagesArea">
-                <div class="welcome-box">💙 BEM-VINDO!<br>🎨 /gartic | 🐍 /snake | 📷 Clique na câmera para enviar foto</div>
+                <div class="welcome-box">
+                    💜 BEM-VINDO AO CHAT ROXO! 💜<br>
+                    🎮 /forca | 🎨 /gartic | 🐍 /snake | 🔫 /gunto | 👢 /kick | 📷 Envie fotos!
+                </div>
             </div>
 
             <div class="typing-area">
                 <div class="input-wrapper">
                     <button id="photoBtn" class="photo-btn">📷</button>
                     <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-                    <button id="sendBtn">ENVIAR</button>
+                    <button id="sendBtn">💜 ENVIAR</button>
                 </div>
                 <div class="typing-indicator" id="typingIndicator"></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE ENVIO DE FOTO -->
     <div id="photoModal" class="modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
             <h2>📷 Enviar Foto</h2>
-            <input type="file" id="photoInput" accept="image/*" capture="environment">
+            <input type="file" id="photoInput" accept="image/*">
             <div id="photoPreview" class="photo-preview"></div>
             <button id="sendPhotoBtn" class="send-photo-btn">📤 ENVIAR FOTO</button>
         </div>
     </div>
 
-    <!-- MODAL DO GARTIC -->
     <div id="garticModal" class="modal">
         <div class="gartic-container">
             <div class="gartic-header">
@@ -101,18 +106,17 @@
                 </div>
                 <div class="gartic-guesses">
                     <input type="text" id="garticGuess" placeholder="Digite seu palpite...">
-                    <button id="garticGuessBtn">PALPITAR</button>
+                    <button id="garticGuessBtn">💜 PALPITAR</button>
                     <div id="guessHistory" class="guess-history"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DO JOGO DA COBRA -->
     <div id="snakeModal" class="modal">
         <div class="snake-container">
             <div class="snake-header">
-                <h2>🐍 JOGO DA COBRINHA</h2>
+                <h2>🐍 JOGO DA COBRA</h2>
                 <button class="close-snake">&times;</button>
             </div>
             <div class="snake-score">Pontuação: <span id="snakeScore">0</span></div>
@@ -124,7 +128,6 @@
         </div>
     </div>
 
-    <!-- ALERTA GUNTO -->
     <div id="guntoAlert" class="gunto-alert" style="display: none;"></div>
 
     <script src="script.js"></script>

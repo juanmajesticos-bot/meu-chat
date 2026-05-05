@@ -1,18 +1,24 @@
+// ============================================
 // FIREBASE CONFIG
+// ============================================
 const firebaseConfig = {
     apiKey: "AIzaSyC5yWUgfpwD3g6FU1VKhHiZW2Q1XBs_TWs",
     authDomain: "chat-79da1.firebaseapp.com",
     projectId: "chat-79da1",
     storageBucket: "chat-79da1.firebasestorage.app",
     messagingSenderId: "832541118241",
-    appId: "1:832541118241:web:5d3c8e2650877106b13860"
+    appId: "1:832541118241:web:5d3c8e2650877106b13860",
+    databaseURL: "https://chat-79da1-default-rtdb.firebaseio.com/"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
+const rtdb = firebase.database();
 
-// VARIÁVEIS
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
 let usuarioAtual = null;
 let dadosUsuario = null;
 let guntoTimeout = null;
@@ -27,18 +33,32 @@ let desenhando = false;
 let ultimaX = 0, ultimaY = 0;
 let corAtual = "#000000";
 let tamanhoPincel = 3;
+let canvasCtx = null;
+let canvasElement = null;
+let sessaoGartic = null;
+
+// VARIÁVEIS DA FORCA
+let forcaAtivo = false;
+let palavraForca = "";
+let letrasDescobertas = [];
+let tentativasForca = 6;
+let letrasErradas = [];
 
 // VARIÁVEIS DA COBRA
 let snakeGame = {
     canvas: null,
     ctx: null,
-    snake: [{x: 10, y: 10}],
+    snake: [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}],
     direction: 'RIGHT',
     food: {x: 15, y: 10},
     score: 0,
     gameLoop: null,
     gameRunning: false
 };
+
+// PALAVRAS
+const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "FLOR", "ARVORE", "PRAIA", "MONTANHA", "CHUVA", "FOGO", "ESTRELA", "BORBOLETA", "PEIXE", "PASSARO", "MACACO", "ELEFANTE", "GIRAFA", "TIGRE"];
+const palavrasForca = ["JAVASCRIPT", "FIREBASE", "PROGRAMADOR", "COMPUTADOR", "INTERNET", "SERVIDOR", "BANCO", "DADOS", "CLOUD", "HACKER", "MATRIX", "TERMINAL", "CODIGO", "SENHA", "ALGORITMO"];
 
 // DOM
 const telaLogin = document.getElementById('loginScreen');
@@ -65,18 +85,68 @@ const garticModal = document.getElementById('garticModal');
 const snakeModal = document.getElementById('snakeModal');
 
 // ============================================
-// SISTEMA DE NÍVEL
+// FUNÇÕES AUXILIARES
 // ============================================
 function getTitulo(nivel) {
-    if (nivel >= 20) return "👑 LENDA";
-    if (nivel >= 15) return "⚡ MESTRE";
-    if (nivel >= 10) return "💎 ÉLITE";
-    if (nivel >= 5) return "🏆 VETERANO";
-    return "⭐ INICIANTE";
+    if (nivel >= 20) return "👑 LENDA 👑";
+    if (nivel >= 15) return "⚡ MESTRE ⚡";
+    if (nivel >= 10) return "💎 ÉLITE 💎";
+    if (nivel >= 5) return "🏆 VETERANO 🏆";
+    if (nivel >= 3) return "📈 APRENDIZ 📈";
+    return "⭐ INICIANTE ⭐";
 }
 
 function getHora() {
-    return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    return now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+// ============================================
+// SISTEMA DE XP
+// ============================================
+async function adicionarXP(username, qtd) {
+    const ref = db.collection('usuarios').doc(username);
+    const doc = await ref.get();
+    let xp = qtd;
+    if (doc.exists) xp = (doc.data().xp || 0) + qtd;
+    const nivel = Math.floor(xp / 100) + 1;
+    await ref.set({ nome: username, xp: xp, nivel: nivel }, { merge: true });
+    if (username === usuarioAtual) await carregarUsuario();
+}
+
+async function carregarUsuario() {
+    if (!usuarioAtual) return;
+    const ref = db.collection('usuarios').doc(usuarioAtual);
+    const doc = await ref.get();
+    dadosUsuario = doc.exists ? doc.data() : { nome: usuarioAtual, xp: 0, nivel: 1 };
+    if (!doc.exists) await ref.set(dadosUsuario);
+    
+    if (userNameSpan) userNameSpan.textContent = usuarioAtual;
+    const nivel = dadosUsuario.nivel || 1;
+    if (userLevelSpan) userLevelSpan.textContent = `Nv.${nivel}`;
+    if (userTitleSpan) userTitleSpan.textContent = getTitulo(nivel);
+    const xpAtual = (dadosUsuario.xp || 0) % 100;
+    const percentual = (xpAtual / 100) * 100;
+    if (xpBarFill) xpBarFill.style.width = `${percentual}%`;
+    if (xpTextSpan) xpTextSpan.textContent = `${xpAtual}/100 XP`;
+    if (userAvatar) {
+        if (nivel >= 20) userAvatar.textContent = "👑";
+        else if (nivel >= 10) userAvatar.textContent = "💎";
+        else userAvatar.textContent = "👤";
+    }
+}
+
+// ============================================
+// MENSAGENS DO SISTEMA
+// ============================================
+async function enviarMsgSistema(texto) {
+    await db.collection('mensagens').add({
+        usuario: '💜 SISTEMA',
+        texto: texto,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        hora: getHora(),
+        isSystem: true
+    });
 }
 
 // ============================================
@@ -86,7 +156,7 @@ function mostrarGunto(mensagem, autor) {
     const alerta = document.getElementById('guntoAlert');
     if (!alerta) return;
     if (guntoTimeout) clearTimeout(guntoTimeout);
-    alerta.innerHTML = `🔫 ${autor} DISPAROU!<br>💙 ${mensagem} 💙`;
+    alerta.innerHTML = `🔫 ${autor} DISPAROU!<br>💜 ${mensagem} 💜`;
     alerta.style.display = 'flex';
     guntoTimeout = setTimeout(() => alerta.style.display = 'none', 4000);
 }
@@ -98,12 +168,12 @@ async function enviarGunto(mensagem, autor) {
         return true;
     }
     mostrarGunto(texto, autor);
-    await db.collection('alertas').add({ tipo: 'gunto', mensagem: texto, autor: autor, timestamp: new Date() });
+    await db.collection('alertas').add({ tipo: 'gunto', mensagem: texto, autor: autor, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
     await enviarMsgSistema(`🔫 ${autor} usou GUNTO: "${texto}"`);
     return true;
 }
 
-db.collection('alertas').onSnapshot((snapshot) => {
+db.collection('alertas').orderBy('timestamp', 'asc').onSnapshot((snapshot) => {
     snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
             const alerta = change.doc.data();
@@ -114,12 +184,43 @@ db.collection('alertas').onSnapshot((snapshot) => {
 });
 
 // ============================================
-// COMANDOS
+// COMANDO KICK
 // ============================================
-async function enviarMsgSistema(texto) {
-    await db.collection('mensagens').add({ usuario: '💙 SISTEMA', texto: texto, timestamp: new Date(), hora: getHora(), isSystem: true });
+async function kickUser(mensagem, autor) {
+    const partes = mensagem.split(' ');
+    const alvo = partes[1]?.replace('@', '');
+    
+    if (!alvo) {
+        await enviarMsgSistema("Use: /kick @usuario");
+        return true;
+    }
+    if (autor === alvo) {
+        await enviarMsgSistema(`${autor} não pode se kickar!`);
+        return true;
+    }
+    
+    const autorRef = await db.collection('usuarios').doc(autor).get();
+    const autorNivel = autorRef.exists ? (autorRef.data().nivel || 1) : 1;
+    
+    if (autorNivel < 5) {
+        await enviarMsgSistema(`${autor} precisa ser nível 5+ para kickar!`);
+        return true;
+    }
+    
+    await enviarMsgSistema(`💀 ${alvo} foi EXPULSO do chat por ${autor}! 💀`);
+    
+    if (alvo === usuarioAtual) {
+        setTimeout(() => {
+            localStorage.removeItem('chatUsername');
+            location.reload();
+        }, 2000);
+    }
+    return true;
 }
 
+// ============================================
+// COMANDO CLS
+// ============================================
 async function limparChat(autor) {
     const msgs = await db.collection('mensagens').get();
     const batch = db.batch();
@@ -128,94 +229,317 @@ async function limparChat(autor) {
     await enviarMsgSistema(`🗑️ Chat limpo por ${autor}`);
 }
 
-async function kickUser(mensagem, autor) {
-    const partes = mensagem.split(' ');
-    const alvo = partes[1]?.replace('@', '');
-    if (!alvo) { await enviarMsgSistema("Use: /kick @usuario"); return true; }
-    if (autor === alvo) { await enviarMsgSistema(`${autor} não pode se kickar`); return true; }
-    await enviarMsgSistema(`💀 ${alvo} foi expulso por ${autor}`);
-    if (alvo === usuarioAtual) setTimeout(() => { localStorage.removeItem('chatUsername'); location.reload(); }, 2000);
+// ============================================
+// JOGO DA FORCA
+// ============================================
+async function iniciarForca() {
+    if (forcaAtivo) {
+        await enviarMsgSistema("🪢 Já tem um jogo da forca ativo! Aguarde.");
+        return true;
+    }
+    
+    forcaAtivo = true;
+    palavraForca = palavrasForca[Math.floor(Math.random() * palavrasForca.length)].toUpperCase();
+    letrasDescobertas = [];
+    tentativasForca = 6;
+    letrasErradas = [];
+    
+    for (let i = 0; i < palavraForca.length; i++) {
+        letrasDescobertas.push('_');
+    }
+    
+    await enviarMsgSistema(`🪢 JOGO DA FORCA INICIADO!`);
+    await enviarMsgSistema(getForcaDisplay());
+    await enviarMsgSistema(`💜 Tentativas restantes: ${tentativasForca}`);
+    await enviarMsgSistema(`Digite uma letra no chat para jogar!`);
+    
+    return true;
+}
+
+function getForcaDisplay() {
+    let display = "🪢 ";
+    for (let i = 0; i < letrasDescobertas.length; i++) {
+        display += letrasDescobertas[i] + " ";
+    }
+    return display;
+}
+
+function getForcaDesenho() {
+    const desenhos = [
+        "  +---+\n      |\n      |\n      |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n      |\n      |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n      |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n  |   |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n /|   |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n /|\\  |\n      |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n /|\\  |\n /    |\n      |\n=========",
+        "  +---+\n  |   |\n  O   |\n /|\\  |\n / \\  |\n      |\n========="
+    ];
+    return desenhos[6 - tentativasForca];
+}
+
+async function palpitarForca(letra, usuario) {
+    if (!forcaAtivo) return false;
+    
+    letra = letra.toUpperCase();
+    
+    if (letra.length !== 1 || !/[A-Z]/.test(letra)) {
+        await enviarMsgSistema(`${usuario}, digite apenas uma letra!`);
+        return false;
+    }
+    
+    if (letrasDescobertas.includes(letra) || letrasErradas.includes(letra)) {
+        await enviarMsgSistema(`${usuario}, a letra "${letra}" já foi usada!`);
+        return false;
+    }
+    
+    if (palavraForca.includes(letra)) {
+        for (let i = 0; i < palavraForca.length; i++) {
+            if (palavraForca[i] === letra) {
+                letrasDescobertas[i] = letra;
+            }
+        }
+        await enviarMsgSistema(`✅ ${usuario} acertou a letra "${letra}"!`);
+        await enviarMsgSistema(getForcaDisplay());
+        
+        if (!letrasDescobertas.includes('_')) {
+            const xpGanho = 50;
+            await adicionarXP(usuario, xpGanho);
+            await enviarMsgSistema(`🎉🎉🎉 ${usuario} ACERTOU A PALAVRA "${palavraForca}"! Ganhou +${xpGanho} XP! 🎉🎉🎉`);
+            forcaAtivo = false;
+        }
+    } else {
+        tentativasForca--;
+        letrasErradas.push(letra);
+        await enviarMsgSistema(`❌ ${usuario} errou a letra "${letra}"!`);
+        await enviarMsgSistema(getForcaDesenho());
+        await enviarMsgSistema(`💜 Tentativas restantes: ${tentativasForca}`);
+        
+        if (tentativasForca <= 0) {
+            await enviarMsgSistema(`💀 FIM DE JOGO! A palavra era "${palavraForca}"! 💀`);
+            forcaAtivo = false;
+        } else {
+            await enviarMsgSistema(getForcaDisplay());
+        }
+    }
     return true;
 }
 
 // ============================================
-// ENVIO DE FOTOS
+// JOGO GARTIC
 // ============================================
-if (photoBtn) {
-    photoBtn.onclick = () => {
-        if (photoModal) photoModal.style.display = 'flex';
-        if (photoInput) photoInput.value = '';
-        if (photoPreview) photoPreview.innerHTML = '';
-    };
-}
-
-document.querySelectorAll('.close-modal, .close-gartic, .close-snake').forEach(el => {
-    if (el) {
-        el.onclick = () => {
-            if (photoModal) photoModal.style.display = 'none';
-            if (garticModal) garticModal.style.display = 'none';
-            if (snakeModal) snakeModal.style.display = 'none';
-            if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
-        };
+async function iniciarGartic() {
+    if (garticAtivo) {
+        await enviarMsgSistema("🎨 Já tem um jogo Gartic em andamento!");
+        return true;
     }
-});
-
-if (photoInput) {
-    photoInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file && photoPreview) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                photoPreview.innerHTML = `<img src="${event.target.result}" style="max-width:100%; border-radius:10px;">`;
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+    
+    garticAtivo = true;
+    palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
+    desenhistaAtual = usuarioAtual;
+    tempoRestante = 60;
+    sessaoGartic = Date.now().toString();
+    
+    await rtdb.ref('gartic/' + sessaoGartic).remove();
+    
+    await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o DESENHISTA!`);
+    await enviarMsgSistema(`✨ Adivinhe a palavra desenhada!`);
+    await enviarMsgSistema(`⏱️ Tempo: 60 segundos!`);
+    
+    abrirModalGartic();
+    iniciarTimerGartic();
+    return true;
 }
 
-if (sendPhotoBtn) {
-    sendPhotoBtn.onclick = async () => {
-        const file = photoInput.files[0];
-        if (!file) {
-            alert('Selecione uma foto primeiro!');
-            return;
+function abrirModalGartic() {
+    canvasElement = document.getElementById('garticCanvas');
+    if (!canvasElement) return;
+    canvasCtx = canvasElement.getContext('2d');
+    canvasElement.width = 500;
+    canvasElement.height = 400;
+    canvasCtx.fillStyle = 'white';
+    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.strokeStyle = corAtual;
+    canvasCtx.lineWidth = tamanhoPincel;
+    canvasCtx.lineCap = 'round';
+    canvasCtx.lineJoin = 'round';
+    
+    const wordDisplay = document.getElementById('garticWordDisplay');
+    const drawerInfo = document.getElementById('garticDrawerInfo');
+    
+    if (usuarioAtual === desenhistaAtual) {
+        if (wordDisplay) wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#a78bfa">${palavraSecreta}</strong>`;
+        if (drawerInfo) drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
+        configurarDesenho();
+        canvasElement.style.cursor = 'crosshair';
+    } else {
+        if (wordDisplay) wordDisplay.innerHTML = "❓ ADIVINHE O DESENHO! ❓";
+        if (drawerInfo) drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
+        escutarDesenho();
+        canvasElement.style.cursor = 'not-allowed';
+    }
+    
+    const historyDiv = document.getElementById('guessHistory');
+    if (historyDiv) historyDiv.innerHTML = '<div class="guess-history-title">💜 PALPITES:</div>';
+    if (garticModal) garticModal.style.display = 'flex';
+}
+
+function escutarDesenho() {
+    const desenhoRef = rtdb.ref('gartic/' + sessaoGartic);
+    desenhoRef.off();
+    desenhoRef.on('child_added', (snapshot) => {
+        if (usuarioAtual === desenhistaAtual) return;
+        const traco = snapshot.val();
+        if (canvasCtx && canvasElement) {
+            canvasCtx.beginPath();
+            canvasCtx.strokeStyle = traco.cor;
+            canvasCtx.lineWidth = traco.tamanho;
+            canvasCtx.moveTo(traco.x1, traco.y1);
+            canvasCtx.lineTo(traco.x2, traco.y2);
+            canvasCtx.stroke();
         }
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor, selecione apenas imagens!');
-            return;
+    });
+}
+
+function configurarDesenho() {
+    if (!canvasElement) return;
+    
+    function getCoords(e) {
+        const rect = canvasElement.getBoundingClientRect();
+        const scaleX = canvasElement.width / rect.width;
+        const scaleY = canvasElement.height / rect.height;
+        let x, y;
+        if (e.touches) {
+            x = (e.touches[0].clientX - rect.left) * scaleX;
+            y = (e.touches[0].clientY - rect.top) * scaleY;
+        } else {
+            x = (e.clientX - rect.left) * scaleX;
+            y = (e.clientY - rect.top) * scaleY;
         }
+        return { x: Math.max(0, Math.min(canvasElement.width, x)), y: Math.max(0, Math.min(canvasElement.height, y)) };
+    }
+    
+    function startDrawing(e) {
+        if (usuarioAtual !== desenhistaAtual) return;
+        e.preventDefault();
+        desenhando = true;
+        const { x, y } = getCoords(e);
+        ultimaX = x;
+        ultimaY = y;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(x, y);
+        canvasCtx.lineTo(x, y);
+        canvasCtx.stroke();
+    }
+    
+    function draw(e) {
+        if (!desenhando || usuarioAtual !== desenhistaAtual) return;
+        e.preventDefault();
+        const { x, y } = getCoords(e);
         
-        sendPhotoBtn.textContent = '📤 ENVIANDO...';
-        sendPhotoBtn.disabled = true;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(ultimaX, ultimaY);
+        canvasCtx.lineTo(x, y);
+        canvasCtx.stroke();
         
-        try {
-            const nomeArquivo = `fotos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const storageRef = storage.ref(nomeArquivo);
-            await storageRef.put(file);
-            const url = await storageRef.getDownloadURL();
-            
-            await db.collection('mensagens').add({
-                usuario: usuarioAtual,
-                tipo: 'imagem',
-                imagemUrl: url,
-                timestamp: new Date(),
-                hora: getHora()
-            });
-            
-            await adicionarXP(usuarioAtual, 5);
-            if (photoModal) photoModal.style.display = 'none';
-            if (photoInput) photoInput.value = '';
-            if (photoPreview) photoPreview.innerHTML = '';
-            await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
-            
-        } catch (error) {
-            console.error("Erro ao enviar foto:", error);
-            alert('Erro ao enviar foto: ' + error.message);
-        } finally {
-            sendPhotoBtn.textContent = '📤 ENVIAR FOTO';
-            sendPhotoBtn.disabled = false;
+        const traco = {
+            x1: ultimaX, y1: ultimaY,
+            x2: x, y2: y,
+            cor: corAtual,
+            tamanho: tamanhoPincel,
+            timestamp: Date.now()
+        };
+        rtdb.ref('gartic/' + sessaoGartic).push(traco);
+        
+        ultimaX = x;
+        ultimaY = y;
+    }
+    
+    function stopDrawing(e) {
+        desenhando = false;
+        e.preventDefault();
+    }
+    
+    canvasElement.removeEventListener('mousedown', startDrawing);
+    canvasElement.removeEventListener('mousemove', draw);
+    canvasElement.removeEventListener('mouseup', stopDrawing);
+    canvasElement.removeEventListener('touchstart', startDrawing);
+    canvasElement.removeEventListener('touchmove', draw);
+    canvasElement.removeEventListener('touchend', stopDrawing);
+    
+    canvasElement.addEventListener('mousedown', startDrawing);
+    canvasElement.addEventListener('mousemove', draw);
+    canvasElement.addEventListener('mouseup', stopDrawing);
+    canvasElement.addEventListener('touchstart', startDrawing);
+    canvasElement.addEventListener('touchmove', draw);
+    canvasElement.addEventListener('touchend', stopDrawing);
+}
+
+function iniciarTimerGartic() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(async () => {
+        if (!garticAtivo) { clearInterval(timerInterval); return; }
+        tempoRestante--;
+        const timerDisplay = document.getElementById('garticTimer');
+        if (timerDisplay) timerDisplay.innerHTML = `⏱️ ${tempoRestante}s`;
+        if (tempoRestante <= 0) {
+            clearInterval(timerInterval);
+            await enviarMsgSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
+            fecharGartic();
+        } else if (tempoRestante <= 10) {
+            const timerDisplay = document.getElementById('garticTimer');
+            if (timerDisplay) timerDisplay.style.color = '#ff0000';
         }
-    };
+    }, 1000);
+}
+
+async function palpiteGartic(palpite) {
+    if (!garticAtivo) {
+        await enviarMsgSistema("🎨 Não há jogo Gartic ativo! Use /gartic para começar.");
+        return;
+    }
+    
+    if (usuarioAtual === desenhistaAtual) {
+        await enviarMsgSistema(`${usuarioAtual}, você é o desenhista! Não pode palpitar!`);
+        return;
+    }
+    
+    const palpiteUpper = palpite.toUpperCase().trim();
+    
+    if (palpiteUpper === palavraSecreta) {
+        const xpGanho = 30;
+        await adicionarXP(usuarioAtual, xpGanho);
+        await adicionarXP(desenhistaAtual, 20);
+        
+        await enviarMsgSistema(`🎉🎉🎉 ${usuarioAtual} ACERTOU! A palavra era "${palavraSecreta}"! 🎉🎉🎉`);
+        await enviarMsgSistema(`🏆 ${usuarioAtual} ganhou +${xpGanho} XP!`);
+        await enviarMsgSistema(`🎨 ${desenhistaAtual} ganhou +20 XP por desenhar!`);
+        
+        fecharGartic();
+    } else {
+        await enviarMsgSistema(`❌ ${usuarioAtual} palpitou: "${palpite}" - ERRADO!`);
+        
+        const history = document.getElementById('guessHistory');
+        if (history) {
+            const item = document.createElement('div');
+            item.className = 'guess-item';
+            item.innerHTML = `<span style="color:#a78bfa">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
+            history.appendChild(item);
+            history.scrollTop = history.scrollHeight;
+        }
+    }
+}
+
+function fecharGartic() {
+    garticAtivo = false;
+    if (timerInterval) clearInterval(timerInterval);
+    if (garticModal) garticModal.style.display = 'none';
+    if (sessaoGartic) {
+        rtdb.ref('gartic/' + sessaoGartic).remove();
+    }
+    sessaoGartic = null;
+    desenhistaAtual = null;
+    palavraSecreta = "";
 }
 
 // ============================================
@@ -230,7 +554,7 @@ function iniciarSnake() {
     snakeGame.canvas.width = 400;
     snakeGame.canvas.height = 400;
     
-    snakeGame.snake = [{x: 10, y: 10}];
+    snakeGame.snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}];
     snakeGame.direction = 'RIGHT';
     snakeGame.score = 0;
     snakeGame.gameRunning = true;
@@ -259,14 +583,14 @@ function desenharSnake() {
     if (!snakeGame.ctx || !snakeGame.canvas) return;
     const ctx = snakeGame.ctx;
     const canvas = snakeGame.canvas;
-    ctx.fillStyle = '#1a237e';
+    ctx.fillStyle = '#2e1065';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.fillStyle = '#ff0000';
     ctx.fillRect(snakeGame.food.x * 20, snakeGame.food.y * 20, 18, 18);
     
     snakeGame.snake.forEach((segment, index) => {
-        ctx.fillStyle = index === 0 ? '#42a5f5' : '#1565c0';
+        ctx.fillStyle = index === 0 ? '#a78bfa' : '#7c3aed';
         ctx.fillRect(segment.x * 20, segment.y * 20, 18, 18);
         if (index === 0) {
             ctx.fillStyle = 'white';
@@ -338,279 +662,31 @@ function handleSnakeKey(e) {
 }
 
 // ============================================
-// GARTIC SINCRONIZADO EM TEMPO REAL
+// ENVIO DE MENSAGENS
 // ============================================
-const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "FLOR", "ARVORE", "PRAIA", "MONTANHA"];
-
-async function iniciarGartic() {
-    if (garticAtivo) {
-        await enviarMsgSistema("Já tem um jogo Gartic ativo!");
-        return true;
-    }
-    
-    garticAtivo = true;
-    palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
-    desenhistaAtual = usuarioAtual;
-    tempoRestante = 60;
-    
-    // Limpar desenhos anteriores
-    await db.collection('garticTraco').doc('sessao').delete().catch(() => {});
-    
-    await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o desenhista! Adivinhe a palavra! 🎨`);
-    abrirModalGartic();
-    iniciarTimerGartic();
-    return true;
-}
-
-function abrirModalGartic() {
-    const canvas = document.getElementById('garticCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    canvas.width = 500;
-    canvas.height = 400;
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = corAtual;
-    ctx.lineWidth = tamanhoPincel;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    const wordDisplay = document.getElementById('garticWordDisplay');
-    const drawerInfo = document.getElementById('garticDrawerInfo');
-    
-    if (usuarioAtual === desenhistaAtual) {
-        if (wordDisplay) wordDisplay.innerHTML = `🎨 Desenhando: <strong style="color:#42a5f5">${palavraSecreta}</strong>`;
-        if (drawerInfo) drawerInfo.innerHTML = "🎨 Você é o DESENHISTA! Desenhe a palavra!";
-    } else {
-        if (wordDisplay) wordDisplay.innerHTML = "❓ Adivinhe o desenho! ❓";
-        if (drawerInfo) drawerInfo.innerHTML = `🎨 Desenhista: ${desenhistaAtual}`;
-    }
-    
-    const historyDiv = document.getElementById('guessHistory');
-    if (historyDiv) historyDiv.innerHTML = '';
-    if (garticModal) garticModal.style.display = 'flex';
-    
-    // Carregar traços anteriores
-    carregarTraços();
-    configurarCanvasGartic();
-}
-
-// SALVAR TRAÇO NO FIREBASE
-async function salvarTraco(x1, y1, x2, y2, cor, tamanho) {
-    if (usuarioAtual !== desenhistaAtual) return;
-    
-    await db.collection('garticTraco').add({
-        x1: x1, y1: y1, x2: x2, y2: y2,
-        cor: cor,
-        tamanho: tamanho,
-        timestamp: new Date(),
-        sessao: 'sessao'
-    });
-}
-
-// CARREGAR TRAÇOS DO FIREBASE
-function carregarTraços() {
-    db.collection('garticTraco')
-        .where('sessao', '==', 'sessao')
-        .orderBy('timestamp', 'asc')
-        .onSnapshot((snapshot) => {
-            const canvas = document.getElementById('garticCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            
-            // Se for o desenhista, não redesenha tudo (ele já desenha em tempo real)
-            if (usuarioAtual === desenhistaAtual) return;
-            
-            // Redesenhar todos os traços
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            snapshot.forEach((doc) => {
-                const traco = doc.data();
-                ctx.beginPath();
-                ctx.strokeStyle = traco.cor;
-                ctx.lineWidth = traco.tamanho;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.moveTo(traco.x1, traco.y1);
-                ctx.lineTo(traco.x2, traco.y2);
-                ctx.stroke();
-            });
-        });
-}
-
-function configurarCanvasGartic() {
-    const canvas = document.getElementById('garticCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    function getCoords(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let x, y;
-        if (e.touches) {
-            x = (e.touches[0].clientX - rect.left) * scaleX;
-            y = (e.touches[0].clientY - rect.top) * scaleY;
-        } else {
-            x = (e.clientX - rect.left) * scaleX;
-            y = (e.clientY - rect.top) * scaleY;
-        }
-        return { x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y)) };
-    }
-    
-    function startDrawing(e) {
-        if (usuarioAtual !== desenhistaAtual) return;
-        e.preventDefault();
-        desenhando = true;
-        const { x, y } = getCoords(e);
-        ultimaX = x;
-        ultimaY = y;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    }
-    
-    function draw(e) {
-        if (!desenhando || usuarioAtual !== desenhistaAtual) return;
-        e.preventDefault();
-        const { x, y } = getCoords(e);
-        
-        // Desenhar localmente
-        ctx.beginPath();
-        ctx.moveTo(ultimaX, ultimaY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        
-        // Salvar traço no Firebase para outros verem
-        salvarTraco(ultimaX, ultimaY, x, y, corAtual, tamanhoPincel);
-        
-        ultimaX = x;
-        ultimaY = y;
-    }
-    
-    function stopDrawing(e) {
-        desenhando = false;
-        e.preventDefault();
-    }
-    
-    canvas.removeEventListener('mousedown', startDrawing);
-    canvas.removeEventListener('mousemove', draw);
-    canvas.removeEventListener('mouseup', stopDrawing);
-    canvas.removeEventListener('touchstart', startDrawing);
-    canvas.removeEventListener('touchmove', draw);
-    canvas.removeEventListener('touchend', stopDrawing);
-    
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('touchstart', startDrawing);
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', stopDrawing);
-}
-
-function iniciarTimerGartic() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(async () => {
-        if (!garticAtivo) { clearInterval(timerInterval); return; }
-        tempoRestante--;
-        const timerDisplay = document.getElementById('garticTimer');
-        if (timerDisplay) timerDisplay.innerHTML = `⏱️ ${tempoRestante}s`;
-        if (tempoRestante <= 0) {
-            clearInterval(timerInterval);
-            await enviarMsgSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
-            fecharGartic();
-        }
-    }, 1000);
-}
-
-async function palpiteGartic(palpite) {
-    if (!garticAtivo) return;
-    if (usuarioAtual === desenhistaAtual) {
-        await enviarMsgSistema(`${usuarioAtual} não pode palpitar, é o desenhista!`);
-        return;
-    }
-    
-    if (palpite.toUpperCase() === palavraSecreta) {
-        await enviarMsgSistema(`🎉 ${usuarioAtual} ACERTOU! A palavra era "${palavraSecreta}"! Ganhou +30 XP! 🎉`);
-        await adicionarXP(usuarioAtual, 30);
-        await adicionarXP(desenhistaAtual, 20);
-        await enviarMsgSistema(`🎨 ${desenhistaAtual} ganhou +20 XP por desenhar!`);
-        fecharGartic();
-    } else {
-        await enviarMsgSistema(`❌ ${usuarioAtual} palpitou: "${palpite}" - ERRADO!`);
-        const history = document.getElementById('guessHistory');
-        if (history) {
-            const item = document.createElement('div');
-            item.innerHTML = `<span style="color:#42a5f5">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
-            history.appendChild(item);
-        }
-    }
-}
-
-function fecharGartic() {
-    garticAtivo = false;
-    if (timerInterval) clearInterval(timerInterval);
-    if (garticModal) garticModal.style.display = 'none';
-    // Limpar traços da sessão
-    db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
-        snap.forEach(doc => doc.ref.delete());
-    });
-}
-
-// ============================================
-// SISTEMA DE MENSAGENS
-// ============================================
-const XP_POR_MSG = 5;
-
-async function adicionarXP(username, qtd) {
-    const ref = db.collection('usuarios').doc(username);
-    const doc = await ref.get();
-    let xp = qtd;
-    if (doc.exists) xp = (doc.data().xp || 0) + qtd;
-    const nivel = Math.floor(xp / 100) + 1;
-    await ref.set({ nome: username, xp: xp, nivel: nivel }, { merge: true });
-    if (username === usuarioAtual) await carregarUsuario();
-}
-
-async function carregarUsuario() {
-    if (!usuarioAtual) return;
-    const ref = db.collection('usuarios').doc(usuarioAtual);
-    const doc = await ref.get();
-    dadosUsuario = doc.exists ? doc.data() : { nome: usuarioAtual, xp: 0, nivel: 1 };
-    if (!doc.exists) await ref.set(dadosUsuario);
-    
-    if (userNameSpan) userNameSpan.textContent = usuarioAtual;
-    const nivel = dadosUsuario.nivel || 1;
-    if (userLevelSpan) userLevelSpan.textContent = `Nv.${nivel}`;
-    if (userTitleSpan) userTitleSpan.textContent = getTitulo(nivel);
-    const xpAtual = (dadosUsuario.xp || 0) % 100;
-    const percentual = (xpAtual / 100) * 100;
-    if (xpBarFill) xpBarFill.style.width = `${percentual}%`;
-    if (xpTextSpan) xpTextSpan.textContent = `${xpAtual}/100 XP`;
-    if (userAvatar) {
-        if (nivel >= 20) userAvatar.textContent = "👑";
-        else if (nivel >= 10) userAvatar.textContent = "💎";
-        else userAvatar.textContent = "👤";
-    }
-}
-
 async function enviarMensagem(texto) {
     if (!texto.trim() || !usuarioAtual) return;
     
     const cmd = texto.toLowerCase().trim();
+    
     if (cmd === '/cls') { await limparChat(usuarioAtual); return; }
     if (cmd.startsWith('/kick')) { await kickUser(texto, usuarioAtual); return; }
     if (cmd.startsWith('/gunto')) { await enviarGunto(texto, usuarioAtual); return; }
+    if (cmd === '/forca') { await iniciarForca(); return; }
     if (cmd === '/gartic') { await iniciarGartic(); return; }
     if (cmd === '/snake') { iniciarSnake(); return; }
     
-    await adicionarXP(usuarioAtual, XP_POR_MSG);
+    // Verificar se é palpite da forca
+    if (forcaAtivo && texto.length === 1 && /[a-zA-Z]/.test(texto)) {
+        await palpitarForca(texto, usuarioAtual);
+        return;
+    }
+    
+    await adicionarXP(usuarioAtual, 5);
     await db.collection('mensagens').add({
         usuario: usuarioAtual,
         texto: texto,
-        timestamp: new Date(),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         hora: getHora()
     });
 }
@@ -619,7 +695,7 @@ function carregarMensagens() {
     db.collection('mensagens').orderBy('timestamp', 'asc').onSnapshot((snap) => {
         if (!messagesDiv) return;
         if (snap.empty) {
-            messagesDiv.innerHTML = '<div class="welcome-box">💙 BLUE CHAT<br>🎨 /gartic | 🐍 /snake | 📷 clique na câmera para enviar fotos!</div>';
+            messagesDiv.innerHTML = '<div class="welcome-box">💜 CHAT ROXO 💜<br>🎮 /forca | 🎨 /gartic | 🐍 /snake | 🔫 /gunto | 👢 /kick | 📷 Envie fotos!</div>';
             return;
         }
         let html = '';
@@ -637,7 +713,7 @@ function carregarMensagens() {
                             <span class="message-time">${msg.hora}</span>
                         </div>
                         <div class="message-bubble">
-                            <img src="${msg.imagemUrl}" class="message-image" onclick="window.open('${msg.imagemUrl}')" style="max-width:200px; max-height:150px; border-radius:10px; cursor:pointer;">
+                            <img src="${msg.imagemUrl}" class="message-image" onclick="window.open('${msg.imagemUrl}')">
                         </div>
                     </div>
                 `;
@@ -663,16 +739,162 @@ function carregarMensagens() {
 async function entrarChat() {
     const nome = loginInput.value.trim();
     if (!nome) return alert('Digite seu nome');
+    if (nome.length > 20) return alert('Nome muito longo');
     usuarioAtual = nome;
     localStorage.setItem('chatUsername', nome);
     await carregarUsuario();
-    await enviarMsgSistema(`${nome} entrou no chat 💙`);
+    await enviarMsgSistema(`${nome} entrou no chat 💜`);
     if (telaLogin) telaLogin.style.display = 'none';
     if (telaChat) telaChat.style.display = 'flex';
     if (messageInput) messageInput.focus();
 }
 
-// EVENTOS
+// ============================================
+// ENVIO DE FOTOS
+// ============================================
+if (photoBtn) {
+    photoBtn.onclick = () => {
+        if (photoModal) photoModal.style.display = 'flex';
+        if (photoInput) photoInput.value = '';
+        if (photoPreview) photoPreview.innerHTML = '';
+    };
+}
+
+document.querySelectorAll('.close-modal, .close-gartic, .close-snake').forEach(el => {
+    if (el) {
+        el.onclick = () => {
+            if (photoModal) photoModal.style.display = 'none';
+            if (garticModal) garticModal.style.display = 'none';
+            if (snakeModal) snakeModal.style.display = 'none';
+            if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
+        };
+    }
+});
+
+if (photoInput) {
+    photoInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file && photoPreview) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                photoPreview.innerHTML = `<img src="${event.target.result}" style="max-width:100%; border-radius:10px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+if (sendPhotoBtn) {
+    sendPhotoBtn.onclick = async () => {
+        const file = photoInput.files[0];
+        if (!file) {
+            alert('Selecione uma foto primeiro!');
+            return;
+        }
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione apenas imagens!');
+            return;
+        }
+        
+        sendPhotoBtn.textContent = '📤 ENVIANDO...';
+        sendPhotoBtn.disabled = true;
+        
+        try {
+            const nomeArquivo = `fotos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const storageRef = storage.ref(nomeArquivo);
+            await storageRef.put(file);
+            const url = await storageRef.getDownloadURL();
+            
+            await db.collection('mensagens').add({
+                usuario: usuarioAtual,
+                tipo: 'imagem',
+                imagemUrl: url,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                hora: getHora()
+            });
+            
+            await adicionarXP(usuarioAtual, 5);
+            if (photoModal) photoModal.style.display = 'none';
+            if (photoInput) photoInput.value = '';
+            if (photoPreview) photoPreview.innerHTML = '';
+            await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
+            
+        } catch (error) {
+            console.error("Erro ao enviar foto:", error);
+            alert('Erro ao enviar foto: ' + error.message);
+        } finally {
+            sendPhotoBtn.textContent = '📤 ENVIAR FOTO';
+            sendPhotoBtn.disabled = false;
+        }
+    };
+}
+
+// ============================================
+// CONFIGURAÇÕES DOS BOTÕES
+// ============================================
+document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.onclick = () => {
+        if (btn.dataset.clear) {
+            if (canvasElement && canvasCtx) {
+                canvasCtx.fillStyle = 'white';
+                canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+                if (sessaoGartic) {
+                    rtdb.ref('gartic/' + sessaoGartic).remove();
+                }
+            }
+        } else if (btn.dataset.color) {
+            corAtual = btn.dataset.color;
+            if (canvasCtx) canvasCtx.strokeStyle = corAtual;
+        }
+    };
+});
+
+const brushSizeEl = document.getElementById('brushSize');
+if (brushSizeEl) {
+    brushSizeEl.oninput = (e) => {
+        tamanhoPincel = parseInt(e.target.value);
+        if (canvasCtx) canvasCtx.lineWidth = tamanhoPincel;
+        const brushValue = document.getElementById('brushValue');
+        if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
+    };
+}
+
+const garticGuessBtn = document.getElementById('garticGuessBtn');
+if (garticGuessBtn) {
+    garticGuessBtn.addEventListener('click', () => {
+        const input = document.getElementById('garticGuess');
+        if (input && input.value.trim()) {
+            palpiteGartic(input.value);
+            input.value = '';
+        }
+    });
+}
+
+const garticGuessInput = document.getElementById('garticGuess');
+if (garticGuessInput) {
+    garticGuessInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            palpiteGartic(e.target.value);
+            e.target.value = '';
+        }
+    });
+}
+
+const snakeRestartBtn = document.getElementById('snakeRestartBtn');
+if (snakeRestartBtn) {
+    snakeRestartBtn.addEventListener('click', () => {
+        if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
+        iniciarSnake();
+    });
+}
+
+window.addEventListener('keydown', (e) => {
+    if (snakeModal && snakeModal.style.display === 'flex') handleSnakeKey(e);
+});
+
+// ============================================
+// EVENTOS PRINCIPAIS
+// ============================================
 if (loginBtn) loginBtn.onclick = entrarChat;
 if (sendBtn) {
     sendBtn.onclick = () => { enviarMensagem(messageInput.value); if (messageInput) messageInput.value = ''; };
@@ -695,82 +917,12 @@ if (messageInput) {
     };
 }
 
-// Configurar ferramentas do Gartic
-document.querySelectorAll('.tool-btn').forEach(btn => {
-    btn.onclick = () => {
-        if (btn.dataset.clear) {
-            const canvas = document.getElementById('garticCanvas');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                // Limpar traços do Firebase
-                db.collection('garticTraco').where('sessao', '==', 'sessao').get().then((snap) => {
-                    snap.forEach(doc => doc.ref.delete());
-                });
-            }
-        } else if (btn.dataset.color) {
-            corAtual = btn.dataset.color;
-            const canvas = document.getElementById('garticCanvas');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.strokeStyle = corAtual;
-            }
-        }
-    };
-});
-
-const brushSizeEl = document.getElementById('brushSize');
-if (brushSizeEl) {
-    brushSizeEl.oninput = (e) => {
-        tamanhoPincel = parseInt(e.target.value);
-        const canvas = document.getElementById('garticCanvas');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx.lineWidth = tamanhoPincel;
-        }
-        const brushValue = document.getElementById('brushValue');
-        if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
-    };
-}
-
-const garticGuessBtn = document.getElementById('garticGuessBtn');
-if (garticGuessBtn) {
-    garticGuessBtn.addEventListener('click', () => {
-        const input = document.getElementById('garticGuess');
-        if (input) {
-            palpiteGartic(input.value);
-            input.value = '';
-        }
-    });
-}
-
-const garticGuess = document.getElementById('garticGuess');
-if (garticGuess) {
-    garticGuess.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            palpiteGartic(e.target.value);
-            e.target.value = '';
-        }
-    });
-}
-
-const snakeRestartBtn = document.getElementById('snakeRestartBtn');
-if (snakeRestartBtn) {
-    snakeRestartBtn.addEventListener('click', () => {
-        if (snakeGame.gameLoop) clearInterval(snakeGame.gameLoop);
-        iniciarSnake();
-    });
-}
-
-window.addEventListener('keydown', (e) => {
-    if (snakeModal && snakeModal.style.display === 'flex') handleSnakeKey(e);
-});
-
+// ============================================
 // INICIAR
+// ============================================
 const salvo = localStorage.getItem('chatUsername');
 if (salvo && loginInput) { loginInput.value = salvo; entrarChat(); }
 carregarMensagens();
 setInterval(async () => { const snap = await db.collection('usuarios').get(); if (onlineCountSpan) onlineCountSpan.textContent = snap.size; }, 5000);
 
-console.log("✅ CHAT PRONTO! Gartic sincronizado! Comandos: /gunto, /kick, /cls, /gartic, /snake | 📷 Envie fotos!");
+console.log("✅ CHAT ROXO PRONTO! Comandos: /forca, /gartic, /snake, /gunto, /kick, /cls, envio de fotos!");

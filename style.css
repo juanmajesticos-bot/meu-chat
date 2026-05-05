@@ -5,21 +5,24 @@
 }
 
 body {
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #0c1445, #1a237e);
+    font-family: 'Segoe UI', 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #1a0b2e, #2e1065, #4c1d95);
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
+/* ============================================ */
+/* TELA DE LOGIN ROXA */
+/* ============================================ */
 .login-screen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #0c1445, #1a237e);
+    background: linear-gradient(135deg, #1a0b2e, #2e1065);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -27,24 +30,42 @@ body {
 }
 
 .login-card {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 40px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(15px);
+    border-radius: 24px;
+    padding: 45px 40px;
     text-align: center;
     width: 90%;
-    max-width: 400px;
-    border: 1px solid #42a5f5;
+    max-width: 420px;
+    border: 1px solid rgba(124, 58, 237, 0.4);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    animation: fadeInUp 0.6s ease;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .logo-icon {
-    font-size: 60px;
-    margin-bottom: 20px;
+    font-size: 65px;
+    margin-bottom: 15px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); text-shadow: 0 0 0px #7c3aed; }
+    50% { transform: scale(1.05); text-shadow: 0 0 20px #7c3aed; }
+    100% { transform: scale(1); text-shadow: 0 0 0px #7c3aed; }
 }
 
 .login-card h1 {
-    color: white;
+    font-size: 2rem;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     margin-bottom: 30px;
+    letter-spacing: 2px;
 }
 
 .login-input-group {
@@ -54,27 +75,41 @@ body {
 }
 
 .login-input-group input {
-    padding: 15px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid #42a5f5;
-    border-radius: 10px;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(124, 58, 237, 0.5);
+    border-radius: 12px;
+    font-size: 1rem;
     color: white;
     text-align: center;
+    transition: all 0.3s;
 }
 
 .login-input-group input:focus {
     outline: none;
-    border-color: #42a5f5;
+    border-color: #a78bfa;
+    box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+}
+
+.login-input-group input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .login-input-group button {
-    padding: 15px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    padding: 14px;
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
-    border-radius: 10px;
-    color: white;
+    border-radius: 12px;
+    font-size: 1rem;
     font-weight: bold;
+    color: white;
     cursor: pointer;
+    transition: all 0.3s;
+}
+
+.login-input-group button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(124, 58, 237, 0.4);
 }
 
 .login-info {
@@ -83,16 +118,21 @@ body {
     justify-content: center;
     gap: 10px;
     margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(124, 58, 237, 0.3);
 }
 
 .login-info span {
-    background: rgba(66,165,245,0.2);
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-size: 12px;
-    color: #90caf9;
+    background: rgba(124, 58, 237, 0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    color: #c4b5fd;
 }
 
+/* ============================================ */
+/* CHAT PRINCIPAL ROXO */
+/* ============================================ */
 .chat-main {
     width: 100%;
     height: 100vh;
@@ -104,23 +144,42 @@ body {
 
 .chat-container {
     width: 100%;
-    max-width: 1000px;
-    height: 90vh;
-    background: #0a0e27;
-    border-radius: 20px;
+    max-width: 1100px;
+    height: 92vh;
+    background: #0f0717;
+    border-radius: 24px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid #42a5f5;
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
 }
 
 .chat-header {
-    background: linear-gradient(135deg, #0c1445, #1a237e);
-    padding: 15px 20px;
+    background: linear-gradient(135deg, #1a0b2e, #2e1065);
+    padding: 15px 25px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #42a5f5;
+    border-bottom: 2px solid #7c3aed;
+}
+
+.logo-small {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo-small-icon {
+    font-size: 28px;
+}
+
+.logo-small-text {
+    font-size: 18px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .user-info {
@@ -132,12 +191,13 @@ body {
 .user-avatar {
     width: 50px;
     height: 50px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 24px;
+    box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
 }
 
 .user-name {
@@ -152,18 +212,18 @@ body {
 }
 
 .user-level span:first-child {
-    color: #42a5f5;
+    color: #a78bfa;
 }
 
 .user-level span:last-child {
-    color: #90caf9;
+    color: #c4b5fd;
 }
 
 .xp-bar {
     position: relative;
     width: 150px;
     height: 12px;
-    background: #1a237e;
+    background: #2e1065;
     border-radius: 10px;
     overflow: hidden;
     margin-top: 5px;
@@ -171,7 +231,7 @@ body {
 
 .xp-fill {
     height: 100%;
-    background: linear-gradient(90deg, #42a5f5, #1565c0);
+    background: linear-gradient(90deg, #7c3aed, #a78bfa);
     width: 0%;
     transition: width 0.3s;
 }
@@ -186,12 +246,13 @@ body {
 }
 
 .online-count {
-    color: #90caf9;
-    background: rgba(66,165,245,0.2);
-    padding: 5px 12px;
+    color: #c4b5fd;
+    background: rgba(124, 58, 237, 0.2);
+    padding: 5px 15px;
     border-radius: 20px;
 }
 
+/* ÁREA DE MENSAGENS */
 .messages-area {
     flex: 1;
     overflow-y: auto;
@@ -206,29 +267,32 @@ body {
 }
 
 .messages-area::-webkit-scrollbar-track {
-    background: #1a237e;
+    background: #2e1065;
 }
 
 .messages-area::-webkit-scrollbar-thumb {
-    background: #42a5f5;
+    background: #7c3aed;
     border-radius: 5px;
 }
 
 .welcome-box {
     text-align: center;
-    color: #90caf9;
-    padding: 20px;
-    background: rgba(66,165,245,0.1);
-    border-radius: 10px;
+    color: #c4b5fd;
+    padding: 25px;
+    background: rgba(124, 58, 237, 0.1);
+    border-radius: 16px;
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    line-height: 1.8;
 }
 
+/* MENSAGENS */
 .message {
     display: flex;
     flex-direction: column;
-    animation: fadeIn 0.2s ease;
+    animation: fadeInMsg 0.2s ease;
 }
 
-@keyframes fadeIn {
+@keyframes fadeInMsg {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
@@ -243,36 +307,35 @@ body {
 
 .message-bubble {
     max-width: 70%;
-    padding: 10px 15px;
+    padding: 10px 16px;
     border-radius: 18px;
     word-wrap: break-word;
 }
 
 .message-own .message-bubble {
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     color: white;
     border-bottom-right-radius: 5px;
 }
 
 .message-other .message-bubble {
-    background: #1a237e;
+    background: #2e1065;
     color: #ddd;
-    border: 1px solid #42a5f5;
+    border: 1px solid #7c3aed;
     border-bottom-left-radius: 5px;
 }
 
 .message-image {
-    max-width: 250px;
-    max-height: 200px;
+    max-width: 200px;
+    max-height: 150px;
     border-radius: 10px;
     cursor: pointer;
-    margin-top: 5px;
 }
 
 .message-info {
     font-size: 11px;
     margin: 0 10px 5px 10px;
-    color: #90caf9;
+    color: #a78bfa;
     display: flex;
     gap: 8px;
 }
@@ -282,26 +345,30 @@ body {
 }
 
 .message-name {
-    color: #42a5f5;
+    color: #a78bfa;
     font-weight: bold;
 }
 
 .message-time {
-    color: #666;
+    color: #7c3aed;
 }
 
 .system-message {
     text-align: center;
     font-size: 12px;
-    color: #90caf9;
+    color: #a78bfa;
     margin: 5px 0;
     font-style: italic;
+    background: rgba(124, 58, 237, 0.1);
+    padding: 6px;
+    border-radius: 12px;
 }
 
+/* ÁREA DE DIGITAR */
 .typing-area {
     padding: 15px;
-    background: #0a0e27;
-    border-top: 1px solid #1a237e;
+    background: #0f0717;
+    border-top: 1px solid #2e1065;
 }
 
 .input-wrapper {
@@ -311,43 +378,57 @@ body {
 
 .typing-area input {
     flex: 1;
-    padding: 12px;
-    background: #1a237e;
-    border: 1px solid #42a5f5;
-    border-radius: 10px;
+    padding: 12px 15px;
+    background: #2e1065;
+    border: 1px solid #7c3aed;
+    border-radius: 12px;
     color: white;
+    font-size: 14px;
 }
 
 .typing-area input:focus {
     outline: none;
+    border-color: #a78bfa;
+    box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
+}
+
+.typing-area input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .typing-area button {
-    padding: 12px 25px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     color: white;
     font-weight: bold;
     cursor: pointer;
+    transition: all 0.3s;
+}
+
+.typing-area button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
 }
 
 .photo-btn {
     font-size: 20px;
     padding: 8px 15px;
-    background: #1a237e;
-    border: 1px solid #42a5f5;
-    border-radius: 10px;
+    background: #2e1065;
+    border: 1px solid #7c3aed;
+    border-radius: 12px;
     cursor: pointer;
 }
 
 .typing-indicator {
-    font-size: 12px;
-    color: #42a5f5;
+    font-size: 11px;
+    color: #a78bfa;
     padding: 5px 0 0 5px;
+    min-height: 25px;
 }
 
-/* MODAL GERAL */
+/* MODAL */
 .modal {
     display: none;
     position: fixed;
@@ -355,27 +436,31 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0, 0, 0, 0.95);
     z-index: 2000;
     justify-content: center;
     align-items: center;
 }
 
 .modal-content {
-    background: #0a0e27;
+    background: #0f0717;
     border-radius: 20px;
     padding: 30px;
     width: 90%;
     max-width: 500px;
     text-align: center;
-    border: 1px solid #42a5f5;
+    border: 1px solid #7c3aed;
 }
 
 .close-modal, .close-gartic, .close-snake {
     float: right;
     font-size: 28px;
     cursor: pointer;
-    color: white;
+    color: #a78bfa;
+}
+
+.close-modal:hover, .close-gartic:hover, .close-snake:hover {
+    color: #7c3aed;
 }
 
 .photo-preview {
@@ -389,9 +474,9 @@ body {
 
 .send-photo-btn {
     padding: 12px 25px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     color: white;
     font-weight: bold;
     cursor: pointer;
@@ -399,12 +484,12 @@ body {
 
 /* GARTIC */
 .gartic-container {
-    background: #0a0e27;
+    background: #0f0717;
     border-radius: 20px;
     padding: 20px;
     width: 90%;
     max-width: 600px;
-    border: 1px solid #42a5f5;
+    border: 1px solid #7c3aed;
 }
 
 .gartic-header {
@@ -449,15 +534,15 @@ body {
 .gartic-guesses input {
     flex: 1;
     padding: 10px;
-    background: #1a237e;
-    border: 1px solid #42a5f5;
+    background: #2e1065;
+    border: 1px solid #7c3aed;
     border-radius: 8px;
     color: white;
 }
 
 .gartic-guesses button {
     padding: 10px 20px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
     border-radius: 8px;
     color: white;
@@ -470,18 +555,18 @@ body {
     max-height: 100px;
     overflow-y: auto;
     font-size: 12px;
-    color: #90caf9;
+    color: #c4b5fd;
 }
 
 /* JOGO DA COBRA */
 .snake-container {
-    background: #0a0e27;
+    background: #0f0717;
     border-radius: 20px;
     padding: 20px;
     width: 90%;
     max-width: 500px;
     text-align: center;
-    border: 1px solid #42a5f5;
+    border: 1px solid #7c3aed;
 }
 
 .snake-header {
@@ -493,13 +578,13 @@ body {
 }
 
 .snake-score {
-    color: #42a5f5;
+    color: #a78bfa;
     font-size: 20px;
     margin: 10px 0;
 }
 
 .snake-canvas {
-    background: #1a237e;
+    background: #2e1065;
     border-radius: 10px;
     width: 100%;
     height: auto;
@@ -510,14 +595,14 @@ body {
 }
 
 .snake-controls p {
-    color: #90caf9;
+    color: #c4b5fd;
     font-size: 12px;
     margin-bottom: 10px;
 }
 
 #snakeRestartBtn {
     padding: 10px 20px;
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     border: none;
     border-radius: 8px;
     color: white;
@@ -530,7 +615,7 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #42a5f5, #1565c0);
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
     color: white;
     padding: 25px 45px;
     border-radius: 20px;
@@ -538,7 +623,7 @@ body {
     font-weight: bold;
     z-index: 3000;
     text-align: center;
-    box-shadow: 0 0 50px rgba(66,165,245,0.8);
+    box-shadow: 0 0 50px rgba(124, 58, 237, 0.8);
     animation: guntoAnim 0.3s ease;
 }
 
@@ -547,10 +632,14 @@ body {
     to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
-@media (max-width: 600px) {
-    .chat-container { height: 95vh; }
-    .message-bubble { max-width: 85%; }
-    .gunto-alert { font-size: 1rem; padding: 15px 25px; width: 80%; text-align: center; }
+/* RESPONSIVO */
+@media (max-width: 700px) {
+    .chat-container { height: 95vh; border-radius: 16px; }
+    .message-bubble { max-width: 85%; font-size: 13px; }
+    .gunto-alert { font-size: 1rem; padding: 15px 25px; width: 85%; text-align: center; }
     .gartic-container { width: 95%; }
     .snake-container { width: 95%; }
+    .xp-bar { width: 100px; }
+    .user-avatar { width: 40px; height: 40px; font-size: 20px; }
+    .logo-small-text { display: none; }
 }
