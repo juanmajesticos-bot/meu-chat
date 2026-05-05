@@ -263,53 +263,96 @@ async function palpitarForca(letra) {
 // ============================================
 // JOGO GARTIC
 // ============================================
+// ============================================
+// JOGO GARTIC - CORRIGIDO (FUNCIONA EM MÚLTIPLOS PCs)
+// ============================================
+
+let garticAtivo = false;
+let palavraSecreta = "";
+let desenhistaAtual = "";
+let tempoRestante = 60;
+let timerInterval = null;
+let desenhando = false;
+let ultimaX = 0, ultimaY = 0;
+let corAtual = "#000000";
+let tamanhoPincel = 3;
+let canvasCtx = null;
+let canvasElement = null;
+let sessaoGartic = null;
+
+const palavrasGartic = ["CASA", "CARRO", "CACHORRO", "GATO", "SOL", "LUA", "FLOR", "ARVORE", "PRAIA", "MONTANHA", "CHUVA", "FOGO", "ESTRELA", "BORBOLETA", "PEIXE", "PASSARO"];
+
+// INICIAR GARTIC
 async function iniciarGartic() {
+    console.log("🎨 iniciarGartic chamado por:", usuarioAtual);
+    
     if (garticAtivo) {
         await enviarMsgSistema(`🎨 Já tem um jogo! ${desenhistaAtual} está desenhando.`);
         abrirGarticPanel(false);
         return;
     }
     
+    // Criar sessão única
     garticAtivo = true;
     palavraSecreta = palavrasGartic[Math.floor(Math.random() * palavrasGartic.length)];
     desenhistaAtual = usuarioAtual;
     tempoRestante = 60;
     sessaoGartic = Date.now().toString();
     
+    console.log("🎨 Nova sessão Gartic:", sessaoGartic, "Palavra:", palavraSecreta, "Desenhista:", desenhistaAtual);
+    
+    // Limpar desenhos anteriores no Realtime Database
     await rtdb.ref('gartic/' + sessaoGartic).remove();
     
-    await enviarMsgSistema(`🎨 GARTIC! ${desenhistaAtual} é o DESENHISTA!`);
-    await enviarMsgSistema(`✨ Os outros devem adivinhar! Tempo: 60s`);
+    // Salvar estado do jogo para outros usuários verem
+    await db.collection('garticEstado').doc('atual').set({
+        ativo: true,
+        desenhista: desenhistaAtual,
+        sessao: sessaoGartic,
+        palavra: palavraSecreta,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    await enviarMsgSistema(`🎨 GARTIC INICIADO! ${desenhistaAtual} é o DESENHISTA!`);
+    await enviarMsgSistema(`✨ Os outros jogadores devem adivinhar! Tempo: 60s`);
     
     abrirGarticPanel(true);
     iniciarTimerGartic();
-    
-    await db.collection('garticEstado').doc('atual').set({
-        ativo: true, desenhista: desenhistaAtual, sessao: sessaoGartic, palavra: palavraSecreta
-    });
 }
 
+// ESCUTAR SE ALGUÉM INICIOU UM JOGO (SINCRONIZAÇÃO)
 db.collection('garticEstado').doc('atual').onSnapshot(async (doc) => {
+    console.log("📡 Escutando garticEstado:", doc.exists, doc.data());
+    
     if (doc.exists && doc.data().ativo) {
         const data = doc.data();
+        
+        // Se não tem jogo ativo localmente, mas tem no Firebase, e não fui eu que comecei
         if (!garticAtivo && data.desenhista !== usuarioAtual) {
+            console.log("🎨 Sincronizando jogo existente. Desenhista:", data.desenhista);
+            
             garticAtivo = true;
             palavraSecreta = data.palavra;
             desenhistaAtual = data.desenhista;
             sessaoGartic = data.sessao;
             tempoRestante = 60;
+            
+            await enviarMsgSistema(`🎨 ${desenhistaAtual} iniciou um jogo Gartic! Tente adivinhar!`);
             abrirGarticPanel(false);
             iniciarTimerGartic();
-            await enviarMsgSistema(`🎨 ${desenhistaAtual} iniciou o Gartic!`);
         }
     } else if ((!doc.exists || !doc.data().ativo) && garticAtivo) {
+        console.log("🎨 Jogo finalizado, fechando painel");
         fecharGartic();
     }
 });
 
 function abrirGarticPanel(podeDesenhar) {
+    console.log("🎨 abrirGarticPanel - podeDesenhar:", podeDesenhar, "usuarioAtual:", usuarioAtual, "desenhistaAtual:", desenhistaAtual);
+    
     garticPanel.classList.add('open');
     canvasElement = document.getElementById('garticCanvas');
+    
     if (canvasElement) {
         canvasCtx = canvasElement.getContext('2d');
         canvasElement.width = 400;
@@ -318,26 +361,37 @@ function abrirGarticPanel(podeDesenhar) {
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
         canvasCtx.strokeStyle = corAtual;
         canvasCtx.lineWidth = tamanhoPincel;
+        canvasCtx.lineCap = 'round';
+        canvasCtx.lineJoin = 'round';
     }
     
     const wordHint = document.getElementById('garticWordHint');
     const drawerSpan = document.getElementById('currentDrawer');
-    const statusSpan = document.querySelector('.gartic-status .status-text');
+    const statusSpan = document.getElementById('garticStatusText');
     const isDrawer = (usuarioAtual === desenhistaAtual);
     
     if (isDrawer && podeDesenhar) {
-        if (wordHint) wordHint.innerHTML = `🎨 Desenhando: <strong>${palavraSecreta}</strong>`;
-        if (drawerSpan) drawerSpan.innerHTML = `${desenhistaAtual} (Você - Desenhista)`;
-        if (statusSpan) statusSpan.innerHTML = "🎨 DESENHE A PALAVRA!";
-        canvasElement.style.cursor = 'crosshair';
+        // É O DESENHISTA - vê a palavra e pode desenhar
+        if (wordHint) wordHint.innerHTML = `🎨 Você está desenhando: <strong style="color:#a78bfa">${palavraSecreta}</strong>`;
+        if (drawerSpan) drawerSpan.innerHTML = `${desenhistaAtual} <span style="color:#4caf50">(Você - Desenhista)</span>`;
+        if (statusSpan) {
+            statusSpan.innerHTML = "🎨 VOCÊ É O DESENHISTA! Desenhe a palavra!";
+            statusSpan.style.background = "#4c1d95";
+        }
+        if (canvasElement) canvasElement.style.cursor = 'crosshair';
         configurarDesenhoGartic();
     } else {
+        // NÃO É DESENHISTA - só vê e palpita
         if (wordHint) wordHint.innerHTML = "❓ ADIVINHE O DESENHO! ❓";
-        if (drawerSpan) drawerSpan.innerHTML = `${desenhistaAtual} (Desenhista)`;
-        if (statusSpan) statusSpan.innerHTML = `💜 Aguardando ${desenhistaAtual} desenhar...`;
-        canvasElement.style.cursor = 'not-allowed';
+        if (drawerSpan) drawerSpan.innerHTML = `${desenhistaAtual} <span style="color:#ff9800">(Desenhista)</span>`;
+        if (statusSpan) {
+            statusSpan.innerHTML = `💜 Aguardando ${desenhistaAtual} desenhar... Você pode PALPITAR!`;
+            statusSpan.style.background = "#2e1065";
+        }
+        if (canvasElement) canvasElement.style.cursor = 'not-allowed';
         escutarDesenhoGartic();
     }
+    
     document.getElementById('guessHistoryList').innerHTML = '';
 }
 
@@ -360,11 +414,15 @@ function configurarDesenhoGartic() {
     }
     
     function startDrawing(e) {
-        if (usuarioAtual !== desenhistaAtual) return;
+        if (usuarioAtual !== desenhistaAtual) {
+            enviarMsgSistema(`❌ Apenas ${desenhistaAtual} pode desenhar!`);
+            return;
+        }
         e.preventDefault();
         desenhando = true;
         const { x, y } = getCoords(e);
-        ultimaX = x; ultimaY = y;
+        ultimaX = x;
+        ultimaY = y;
         canvasCtx.beginPath();
         canvasCtx.moveTo(x, y);
         canvasCtx.lineTo(x, y);
@@ -375,22 +433,44 @@ function configurarDesenhoGartic() {
         if (!desenhando || usuarioAtual !== desenhistaAtual) return;
         e.preventDefault();
         const { x, y } = getCoords(e);
+        
         canvasCtx.beginPath();
         canvasCtx.moveTo(ultimaX, ultimaY);
         canvasCtx.lineTo(x, y);
         canvasCtx.stroke();
-        rtdb.ref('gartic/' + sessaoGartic).push({ x1: ultimaX, y1: ultimaY, x2: x, y2: y, cor: corAtual, tamanho: tamanhoPincel });
-        ultimaX = x; ultimaY = y;
+        
+        // Salvar traço no Realtime Database para outros verem
+        const traco = {
+            x1: ultimaX, y1: ultimaY,
+            x2: x, y2: y,
+            cor: corAtual,
+            tamanho: tamanhoPincel,
+            timestamp: Date.now()
+        };
+        rtdb.ref('gartic/' + sessaoGartic).push(traco);
+        
+        ultimaX = x;
+        ultimaY = y;
     }
     
-    function stopDrawing(e) { desenhando = false; e.preventDefault(); }
+    function stopDrawing(e) {
+        desenhando = false;
+        e.preventDefault();
+    }
     
     canvasElement.removeEventListener('mousedown', startDrawing);
     canvasElement.removeEventListener('mousemove', draw);
     canvasElement.removeEventListener('mouseup', stopDrawing);
+    canvasElement.removeEventListener('touchstart', startDrawing);
+    canvasElement.removeEventListener('touchmove', draw);
+    canvasElement.removeEventListener('touchend', stopDrawing);
+    
     canvasElement.addEventListener('mousedown', startDrawing);
     canvasElement.addEventListener('mousemove', draw);
     canvasElement.addEventListener('mouseup', stopDrawing);
+    canvasElement.addEventListener('touchstart', startDrawing);
+    canvasElement.addEventListener('touchmove', draw);
+    canvasElement.addEventListener('touchend', stopDrawing);
 }
 
 function escutarDesenhoGartic() {
@@ -412,10 +492,22 @@ function escutarDesenhoGartic() {
 function iniciarTimerGartic() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(async () => {
-        if (!garticAtivo) { clearInterval(timerInterval); return; }
+        if (!garticAtivo) { 
+            clearInterval(timerInterval); 
+            return; 
+        }
         tempoRestante--;
-        const timerDisplay = document.querySelector('.gartic-status');
-        if (timerDisplay) timerDisplay.innerHTML = `<span class="status-text">⏱️ ${tempoRestante}s</span>`;
+        
+        const timerDisplay = document.getElementById('garticStatusText');
+        if (timerDisplay) {
+            if (tempoRestante <= 10) {
+                timerDisplay.innerHTML = `⏰ ${tempoRestante}s restantes!`;
+                timerDisplay.style.backgroundColor = "rgba(255,0,0,0.2)";
+            } else {
+                timerDisplay.innerHTML = `⏱️ Tempo: ${tempoRestante}s`;
+            }
+        }
+        
         if (tempoRestante <= 0) {
             clearInterval(timerInterval);
             await enviarMsgSistema(`⏰ TEMPO ESGOTADO! A palavra era "${palavraSecreta}"!`);
@@ -425,36 +517,120 @@ function iniciarTimerGartic() {
 }
 
 async function palpiteGartic(palpite) {
-    if (!garticAtivo) return;
-    if (usuarioAtual === desenhistaAtual) {
-        await enviarMsgSistema(`Você é o DESENHISTA! Não pode palpitar!`);
+    if (!garticAtivo) {
+        await enviarMsgSistema("🎨 Não há jogo Gartic ativo!");
         return;
     }
     
-    if (palpite.toUpperCase().trim() === palavraSecreta) {
-        await enviarMsgSistema(`🎉🎉🎉 ${usuarioAtual} ACERTOU! Palavra: "${palavraSecreta}"! 🎉🎉🎉`);
+    if (usuarioAtual === desenhistaAtual) {
+        await enviarMsgSistema(`❌ ${usuarioAtual}, você é o DESENHISTA! Não pode palpitar!`);
+        return;
+    }
+    
+    const palpiteUpper = palpite.toUpperCase().trim();
+    
+    if (palpiteUpper === palavraSecreta) {
+        await enviarMsgSistema(`🎉🎉🎉 ${usuarioAtual} ACERTOU! A palavra era "${palavraSecreta}"! 🎉🎉🎉`);
         fecharGartic();
     } else {
         await enviarMsgSistema(`❌ ${usuarioAtual} palpitou: "${palpite}" - ERRADO!`);
+        
         const historyList = document.getElementById('guessHistoryList');
         if (historyList) {
             const item = document.createElement('div');
             item.className = 'guess-item';
             item.innerHTML = `<span style="color:#a78bfa">${usuarioAtual}</span> palpitou: "${palpite}" ❌`;
             historyList.appendChild(item);
+            historyList.scrollTop = historyList.scrollHeight;
         }
     }
 }
 
 function fecharGartic() {
+    console.log("🎨 fecharGartic - finalizando jogo");
     garticAtivo = false;
     if (timerInterval) clearInterval(timerInterval);
     garticPanel.classList.remove('open');
-    if (sessaoGartic) rtdb.ref('gartic/' + sessaoGartic).remove();
-    db.collection('garticEstado').doc('atual').delete();
+    if (sessaoGartic) {
+        rtdb.ref('gartic/' + sessaoGartic).remove();
+    }
     sessaoGartic = null;
     desenhistaAtual = null;
+    palavraSecreta = "";
+    
+    // Limpar estado no Firebase
+    db.collection('garticEstado').doc('atual').delete().catch(console.log);
 }
+
+// BOTÃO DO GARTIC NA SIDEBAR
+if (openGarticBtn) {
+    openGarticBtn.onclick = () => {
+        console.log("🎨 Botão Gartic clicado. garticAtivo:", garticAtivo);
+        if (!garticAtivo) {
+            iniciarGartic();
+        } else {
+            abrirGarticPanel(usuarioAtual === desenhistaAtual);
+        }
+    };
+}
+
+// BOTÃO FECHAR PAINEL
+if (closeGarticPanel) {
+    closeGarticPanel.onclick = () => {
+        fecharGartic();
+    };
+}
+
+// CONFIGURAR BOTÕES DE FERRAMENTAS DO GARTIC
+document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.onclick = () => {
+        if (btn.dataset.clear && canvasElement && canvasCtx) {
+            canvasCtx.fillStyle = 'white';
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+            if (sessaoGartic) {
+                rtdb.ref('gartic/' + sessaoGartic).remove();
+            }
+        } else if (btn.dataset.color) {
+            corAtual = btn.dataset.color;
+            if (canvasCtx) canvasCtx.strokeStyle = corAtual;
+        }
+    };
+});
+
+// CONFIGURAR BRUSH SIZE
+const brushSizePanel = document.getElementById('brushSizePanel');
+if (brushSizePanel) {
+    brushSizePanel.oninput = (e) => {
+        tamanhoPincel = parseInt(e.target.value);
+        if (canvasCtx) canvasCtx.lineWidth = tamanhoPincel;
+        const brushValue = document.getElementById('brushValue');
+        if (brushValue) brushValue.innerText = tamanhoPincel + 'px';
+    };
+}
+
+// BOTÃO PALPITAR
+const garticGuessBtnPanel = document.getElementById('garticGuessBtn');
+if (garticGuessBtnPanel) {
+    garticGuessBtnPanel.onclick = () => {
+        const input = document.getElementById('garticGuessInput');
+        if (input && input.value.trim()) {
+            palpiteGartic(input.value);
+            input.value = '';
+        }
+    };
+}
+
+const garticGuessInputPanel = document.getElementById('garticGuessInput');
+if (garticGuessInputPanel) {
+    garticGuessInputPanel.onkeypress = (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            palpiteGartic(e.target.value);
+            e.target.value = '';
+        }
+    };
+}
+
+console.log("🎨 GARTIC VERSÃO 2.0 CARREGADO! Funciona em múltiplos PCs!");
 
 // ============================================
 // JOGO DA COBRA
