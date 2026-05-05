@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💜 CHAT ROXO - VERSÃO 2</title>
+    <title>💜 CHAT ROXO - VERSÃO 2.0</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -28,6 +28,7 @@
                 <span>🔫 /gunto</span>
                 <span>👢 /kick</span>
                 <span>🗑️ /cls</span>
+                <span>📷 Foto</span>
             </div>
         </div>
     </div>
@@ -71,17 +72,16 @@
             </div>
 
             <div class="typing-area">
-               <div class="typing-area">
-    <div class="input-wrapper">
-        <button id="photoBtn" class="photo-btn">📷</button>  <!-- BOTÃO DE FOTO -->
-        <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
-        <button id="sendBtn">💜 ENVIAR</button>
-    </div>
-    <div class="typing-indicator" id="typingIndicator"></div>
-</div>
+                <div class="input-wrapper">
+                    <button id="photoBtn" class="photo-btn">📷</button>
+                    <input type="text" id="messageInput" placeholder="Digite sua mensagem...">
+                    <button id="sendBtn">💜 ENVIAR</button>
+                </div>
+                <div class="typing-indicator" id="typingIndicator"></div>
+            </div>
         </div>
 
-        <!-- PAINEL GARTIC (LATERAL DIREITA) -->
+        <!-- PAINEL GARTIC -->
         <div class="gartic-panel" id="garticPanel">
             <div class="panel-header">
                 <h3>🎨 GARTIC GAME</h3>
@@ -92,7 +92,7 @@
                     <span class="status-text" id="garticStatusText">📢 Nenhum jogo ativo</span>
                 </div>
                 <div class="gartic-turn">
-                    <span class="testejuanzete">🎨 Vez de: <strong id="currentDrawer">---</strong></span>
+                    <span>🎨 Vez de: <strong id="currentDrawer">---</strong></span>
                 </div>
                 <div class="gartic-word-hint" id="garticWordHint"></div>
                 <canvas id="garticCanvas" width="400" height="300" class="gartic-canvas-panel"></canvas>
@@ -115,6 +115,17 @@
                     <div id="guessHistoryList"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE FOTO -->
+    <div id="photoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>📷 Enviar Foto</h2>
+            <input type="file" id="photoInput" accept="image/*">
+            <div id="photoPreview" class="photo-preview"></div>
+            <button id="sendPhotoBtn" class="send-photo-btn">📤 ENVIAR FOTO</button>
         </div>
     </div>
 

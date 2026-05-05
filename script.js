@@ -594,31 +594,45 @@ console.log("🎮 VERSÃO 2.0 - CHAT ROXO COMPLETO! Gartic sincronizado, Forca e
 // ============================================
 // ENVIO DE FOTOS
 // ============================================
+// ============================================
+// ENVIO DE FOTOS - CORRIGIDO
+// ============================================
 const photoBtn = document.getElementById('photoBtn');
 const photoModal = document.getElementById('photoModal');
 const photoInput = document.getElementById('photoInput');
 const photoPreview = document.getElementById('photoPreview');
 const sendPhotoBtn = document.getElementById('sendPhotoBtn');
+const closeModal = document.querySelector('.close-modal');
+
+console.log("🔍 Botão foto:", photoBtn);
+console.log("🔍 Modal foto:", photoModal);
 
 if (photoBtn) {
     photoBtn.onclick = () => {
-        photoModal.style.display = 'flex';
-        photoInput.value = '';
-        photoPreview.innerHTML = '';
+        console.log("📷 Botão clicado!");
+        if (photoModal) photoModal.style.display = 'flex';
+        if (photoInput) photoInput.value = '';
+        if (photoPreview) photoPreview.innerHTML = '';
     };
 }
 
-document.querySelectorAll('.close-modal').forEach(el => {
-    if (el) {
-        el.onclick = () => {
-            photoModal.style.display = 'none';
-        };
+if (closeModal) {
+    closeModal.onclick = () => {
+        if (photoModal) photoModal.style.display = 'none';
+    };
+}
+
+// Fechar modal clicando fora
+window.onclick = (e) => {
+    if (photoModal && e.target === photoModal) {
+        photoModal.style.display = 'none';
     }
-});
+};
 
 if (photoInput) {
     photoInput.onchange = (e) => {
         const file = e.target.files[0];
+        console.log("📷 Arquivo:", file?.name);
         if (file && photoPreview) {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -633,11 +647,7 @@ if (sendPhotoBtn) {
     sendPhotoBtn.onclick = async () => {
         const file = photoInput.files[0];
         if (!file) {
-            alert('Selecione uma foto primeiro!');
-            return;
-        }
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor, selecione apenas imagens!');
+            alert('Selecione uma foto!');
             return;
         }
         
@@ -646,10 +656,10 @@ if (sendPhotoBtn) {
         
         try {
             const storage = firebase.storage();
-            const nomeArquivo = `fotos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const storageRef = storage.ref(nomeArquivo);
-            await storageRef.put(file);
-            const url = await storageRef.getDownloadURL();
+            const nome = `fotos/${Date.now()}_${file.name}`;
+            const ref = storage.ref(nome);
+            await ref.put(file);
+            const url = await ref.getDownloadURL();
             
             await db.collection('mensagens').add({
                 usuario: usuarioAtual,
@@ -662,11 +672,10 @@ if (sendPhotoBtn) {
             photoModal.style.display = 'none';
             photoInput.value = '';
             photoPreview.innerHTML = '';
-            await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
             
         } catch (error) {
-            console.error("Erro ao enviar foto:", error);
-            alert('Erro ao enviar foto. Verifique o Storage no Firebase!');
+            console.error("Erro:", error);
+            alert('Erro ao enviar foto: ' + error.message);
         } finally {
             sendPhotoBtn.textContent = '📤 ENVIAR FOTO';
             sendPhotoBtn.disabled = false;
