@@ -591,3 +591,85 @@ carregarMensagens();
 setInterval(atualizarOnlineCount, 5000);
 
 console.log("🎮 VERSÃO 2.0 - CHAT ROXO COMPLETO! Gartic sincronizado, Forca e Snake funcionando!");
+// ============================================
+// ENVIO DE FOTOS
+// ============================================
+const photoBtn = document.getElementById('photoBtn');
+const photoModal = document.getElementById('photoModal');
+const photoInput = document.getElementById('photoInput');
+const photoPreview = document.getElementById('photoPreview');
+const sendPhotoBtn = document.getElementById('sendPhotoBtn');
+
+if (photoBtn) {
+    photoBtn.onclick = () => {
+        photoModal.style.display = 'flex';
+        photoInput.value = '';
+        photoPreview.innerHTML = '';
+    };
+}
+
+document.querySelectorAll('.close-modal').forEach(el => {
+    if (el) {
+        el.onclick = () => {
+            photoModal.style.display = 'none';
+        };
+    }
+});
+
+if (photoInput) {
+    photoInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file && photoPreview) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                photoPreview.innerHTML = `<img src="${event.target.result}" style="max-width:100%; border-radius:10px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+}
+
+if (sendPhotoBtn) {
+    sendPhotoBtn.onclick = async () => {
+        const file = photoInput.files[0];
+        if (!file) {
+            alert('Selecione uma foto primeiro!');
+            return;
+        }
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione apenas imagens!');
+            return;
+        }
+        
+        sendPhotoBtn.textContent = '📤 ENVIANDO...';
+        sendPhotoBtn.disabled = true;
+        
+        try {
+            const storage = firebase.storage();
+            const nomeArquivo = `fotos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const storageRef = storage.ref(nomeArquivo);
+            await storageRef.put(file);
+            const url = await storageRef.getDownloadURL();
+            
+            await db.collection('mensagens').add({
+                usuario: usuarioAtual,
+                tipo: 'imagem',
+                imagemUrl: url,
+                timestamp: new Date(),
+                hora: getHora()
+            });
+            
+            photoModal.style.display = 'none';
+            photoInput.value = '';
+            photoPreview.innerHTML = '';
+            await enviarMsgSistema(`📷 ${usuarioAtual} enviou uma foto!`);
+            
+        } catch (error) {
+            console.error("Erro ao enviar foto:", error);
+            alert('Erro ao enviar foto. Verifique o Storage no Firebase!');
+        } finally {
+            sendPhotoBtn.textContent = '📤 ENVIAR FOTO';
+            sendPhotoBtn.disabled = false;
+        }
+    };
+}

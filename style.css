@@ -733,3 +733,46 @@ body {
 .testejuanzete{
     color: white;
 }
+.photo-btn {
+    width: 50px;
+    font-size: 24px;
+    background: #2e1065;
+    border: 1px solid #7c3aed;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.photo-btn:hover {
+    background: #7c3aed;
+    transform: scale(1.05);
+}
+
+.modal-content {
+    background: #0f0717;
+    border-radius: 20px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    border: 2px solid #7c3aed;
+}
+
+.photo-preview {
+    margin: 20px 0;
+}
+
+.photo-preview img {
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+.send-photo-btn {
+    padding: 12px 25px;
+    background: linear-gradient(135deg, #7c3aed, #4c1d95);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
